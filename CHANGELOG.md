@@ -42,6 +42,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `/api/coach/report` computes the coverage of P1/P2 against the longest complete lap; when a lap covers < 90% of the circuit (or is incomplete) the report states it, caps confidence at low and, if neither lap is whole, refuses to pick a better one.
 
 ### Fixed
+- **ACC Intro Logo Freeze, Steam Overlay Deadlock & PROTON_DISABLE_NVAPI**:
+  - Exported `DISABLE_VK_LAYER_VALVE_steam_overlay_1=1` in `acc-with-recorder.sh` and `sim-with-recorder.sh` to prevent `gameoverlayrenderer.so` / `VulkanSteamOverlayPresent` deadlock in `vkQueuePresentKHR`.
+  - Added `export PROTON_DISABLE_NVAPI=1` to ensure GE-Proton does not override `DXVK_ENABLE_NVAPI=0`.
+  - Added `export PROTON_USE_XALIA=0` to prevent GE-Proton's accessibility UI automation tool (`xalia.exe`) from stalling Slate UI on menu loads.
+  - Set `_NET_WM_WINDOW_TYPE_UTILITY` and `InputHint = False` on the native HUD overlay window and added a 5-second launch delay so it does not steal focus or compete with fullscreen swapchain initialization.
+  - Made Steam `reaper` argument stripping robust across all launcher wrapper configurations (including when wrapped with `steam-launch-wrapper`).
 - **UDP Telemetry Broadcaster Wine / Proton Fallback (`ws2_32.dll`)**:
   - Fixed UDP broadcaster failing silently under Wine/Proton (`wsaioctl: winapi error #10045 WSAEOPNOTSUPP`) caused by Go 1.27+ `net.ListenUDP` calling `SIO_UDP_CONNRESET`.
   - Added native Winsock (`ws2_32.dll`) fallback (`recorder/broadcaster_windows.go`) ensuring UDP telemetry frames reach host daemons (`tools/moza_leds.py`, native HUD, WebSocket bridge) reliably under Steam Play / Proton.

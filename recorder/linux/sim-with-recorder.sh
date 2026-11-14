@@ -50,6 +50,13 @@ unset PROTON_ENABLE_NVAPI
 unset ROTON_ENABLE_NVAPI
 export DXVK_ENABLE_NVAPI=0
 export PROTON_ENABLE_NVAPI=0
+export PROTON_DISABLE_NVAPI=1
+
+# Disable Xalia (accessibility UI automation) which hangs Slate UI in Unreal Engine under GE-Proton
+export PROTON_USE_XALIA=0
+
+# Disable Steam Vulkan Overlay layer to prevent deadlocks in VulkanSteamOverlayPresent / vkQueuePresentKHR
+export DISABLE_VK_LAYER_VALVE_steam_overlay_1=1
 
 # Keychron keyboards (0x3434/0x0a81, etc.) present virtual gamepad HID endpoints that cause Wine/Proton DInput to hang
 if [ -z "${SDL_GAMECONTROLLER_IGNORE_DEVICES:-}" ]; then
@@ -141,17 +148,25 @@ fi
 
 proton=""
 rec_cmd=()
-in_reaper=false
-if [ "${1:-}" != "" ] && [[ "${1:-}" =~ reaper$ ]] && [ "${2:-}" = "SteamLaunch" ]; then
-	in_reaper=true
-fi
+has_reaper=false
+for arg in "$@"; do
+	if [[ "$arg" =~ reaper$ ]]; then
+		has_reaper=true
+		break
+	fi
+done
 
-past_reaper=false
-[ "$in_reaper" = "false" ] && past_reaper=true
+in_reaper=false
+past_reaper=true
+[ "$has_reaper" = "true" ] && past_reaper=false
 
 for arg in "$@"; do
-	if [ "$past_reaper" = "false" ]; then
-		if [ "$arg" = "--" ]; then
+	if [ "$has_reaper" = "true" ] && [ "$past_reaper" = "false" ]; then
+		if [[ "$arg" =~ reaper$ ]]; then
+			in_reaper=true
+			continue
+		fi
+		if [ "$in_reaper" = "true" ] && [ "$arg" = "--" ]; then
 			past_reaper=true
 		fi
 		continue
@@ -280,12 +295,12 @@ else
 			[ -x "$repo_root/recorder/bin/idoracing-hud" ] && hud_bin="$repo_root/recorder/bin/idoracing-hud"
 		fi
 		if [ -n "$hud_bin" ]; then
-			"$hud_bin" -config "$config_file" </dev/null >>"$log" 2>&1 &
+			( sleep 5 && "$hud_bin" -config "$config_file" ) </dev/null >>"$log" 2>&1 &
 			hud_pid=$!
 		elif [ -f "$repo_root/tools/pedal_hud.py" ] && command -v python3 >/dev/null 2>&1; then
 			python_cmd="/usr/bin/python3"
 			[ ! -x "$python_cmd" ] && python_cmd="python3"
-			"$python_cmd" "$repo_root/tools/pedal_hud.py" </dev/null >>"$log" 2>&1 &
+			( sleep 5 && "$python_cmd" "$repo_root/tools/pedal_hud.py" ) </dev/null >>"$log" 2>&1 &
 			hud_pid=$!
 		fi
 	fi

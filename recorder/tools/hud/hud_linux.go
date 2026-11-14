@@ -35,6 +35,22 @@ static void set_always_on_top(Display *dpy, Window win) {
     XChangeProperty(dpy, win, wmNetWmState, XA_ATOM, 32, PropModeReplace, (unsigned char *)&wmStateAbove, 1);
 }
 
+static void set_window_type_utility(Display *dpy, Window win) {
+    Atom wmWindowType = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+    Atom wmTypeUtility = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_UTILITY", False);
+    XChangeProperty(dpy, win, wmWindowType, XA_ATOM, 32, PropModeReplace, (unsigned char *)&wmTypeUtility, 1);
+}
+
+static void set_no_input_focus(Display *dpy, Window win) {
+    XWMHints *hints = XAllocWMHints();
+    if (hints) {
+        hints->input = False;
+        hints->flags = InputHint;
+        XSetWMHints(dpy, win, hints);
+        XFree(hints);
+    }
+}
+
 static unsigned long alloc_color(Display *dpy, int screen, unsigned short r, unsigned short g, unsigned short b) {
     Colormap cmap = DefaultColormap(dpy, screen);
     XColor col;
@@ -110,7 +126,9 @@ func runOSWindow(app *HUDApp, width, height int) error {
 	defer C.free(unsafe.Pointer(title))
 	C.XStoreName(dpy, win, title)
 	C.set_mwm_borderless(dpy, win)
+	C.set_window_type_utility(dpy, win)
 	C.set_always_on_top(dpy, win)
+	C.set_no_input_focus(dpy, win)
 
 	C.XSelectInput(dpy, win, C.ExposureMask|C.KeyPressMask|C.ButtonPressMask|C.ButtonReleaseMask|C.PointerMotionMask)
 	C.XMapWindow(dpy, win)
