@@ -46,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Exported `DISABLE_VK_LAYER_VALVE_steam_overlay_1=1` in `acc-with-recorder.sh` and `sim-with-recorder.sh` to prevent `gameoverlayrenderer.so` / `VulkanSteamOverlayPresent` deadlock in `vkQueuePresentKHR`.
   - Added `export PROTON_DISABLE_NVAPI=1` to ensure GE-Proton does not override `DXVK_ENABLE_NVAPI=0`.
   - Added `export PROTON_USE_XALIA=0` to prevent GE-Proton's accessibility UI automation tool (`xalia.exe`) from stalling Slate UI on menu loads.
-  - Set `_NET_WM_WINDOW_TYPE_UTILITY` and `InputHint = False` on the native HUD overlay window and added a 5-second launch delay so it does not steal focus or compete with fullscreen swapchain initialization.
+  - Added a 5-second launch delay to the native HUD overlay so it does not compete with fullscreen swapchain initialization, while preserving full mouse dragging, repositioning, and button interaction.
   - Made Steam `reaper` argument stripping robust across all launcher wrapper configurations (including when wrapped with `steam-launch-wrapper`).
 - **UDP Telemetry Broadcaster Wine / Proton Fallback (`ws2_32.dll`)**:
   - Fixed UDP broadcaster failing silently under Wine/Proton (`wsaioctl: winapi error #10045 WSAEOPNOTSUPP`) caused by Go 1.27+ `net.ListenUDP` calling `SIO_UDP_CONNRESET`.
