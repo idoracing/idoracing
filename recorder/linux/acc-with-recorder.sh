@@ -284,7 +284,7 @@ else
 
 	# Moza RPM shift lights bridge
 	if [ "$moza_leds_enabled" = "true" ] && [ -f "$repo_root/tools/moza_leds.py" ] && command -v python3 >/dev/null 2>&1; then
-		python3 "$repo_root/tools/moza_leds.py" </dev/null >>"$log" 2>&1 &
+		python3 -u "$repo_root/tools/moza_leds.py" </dev/null >>"$log" 2>&1 &
 		moza_pid=$!
 	fi
 

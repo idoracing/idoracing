@@ -16,13 +16,18 @@ import os
 import select
 import signal
 import socket
+import sys
 import termios
 import time
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
 
 UDP_PORT = 10823
 NUM_LEDS = 10
 START_PCT = 0.75  # First LED lights up at 75% of max RPM
 SHIFT_PCT = 0.96  # All LEDs light up and flash at 96% of max RPM
+WHEEL_DEVICE_IDS = (0x17, 0x15)  # Primary wheel ID 23 (0x17) and legacy ID 21 (0x15)
 
 
 def build_frame(group: int, dev_id: int, cmd_id: list[int], payload: list[int]) -> bytes:
@@ -40,15 +45,26 @@ def build_frame(group: int, dev_id: int, cmd_id: list[int], payload: list[int]) 
 
 
 def encode_rpm_mode(enabled: bool) -> bytes:
-    """Group 63 (0x3F), cmd 4: 1 = external telemetry mode, 0 = default firmware mode."""
-    return build_frame(group=0x3F, dev_id=0x00, cmd_id=[0x04], payload=[1 if enabled else 0])
+    """
+    Wheel telemetry mode: group 63 (0x3F), cmd [28, 0] (0x1C, 0x00), payload: 1 = external, 0 = default.
+    Sent to all standard Moza steering wheel device IDs (0x17 and 0x15).
+    """
+    val = 1 if enabled else 0
+    return b"".join(build_frame(group=0x3F, dev_id=dev, cmd_id=[0x1C, 0x00], payload=[val]) for dev in WHEEL_DEVICE_IDS)
 
 
 def encode_rpm_leds(bitmask: int) -> bytes:
-    """Group 63 (0x3F), cmd [26, 0]: 2-byte little-endian LED bitmask."""
+    """
+    Wheel rev LEDs bitmask: group 63 (0x3F), cmd [26, 0] (RPM) & [26, 1] (buttons), 2-byte little-endian.
+    Sent to all standard Moza steering wheel device IDs (0x17 and 0x15).
+    """
     low = bitmask & 0xFF
     high = (bitmask >> 8) & 0xFF
-    return build_frame(group=0x3F, dev_id=0x00, cmd_id=[0x1A, 0x00], payload=[low, high])
+    return b"".join(
+        build_frame(group=0x3F, dev_id=dev, cmd_id=[0x1A, sub], payload=[low, high])
+        for dev in WHEEL_DEVICE_IDS
+        for sub in (0x00, 0x01)
+    )
 
 
 def calc_led_bitmask(
@@ -204,9 +220,9 @@ def sweep_test(port: str | None = None) -> None:
     """Test LED patterns on the connected Moza wheel."""
     moza = MozaController(port)
     if not moza.open():
-        print(f"idoracing-moza: could not connect to Moza device ({moza.port_path or 'not found'})")
+        print(f"idoracing-moza: could not connect to Moza device ({moza.port_path or 'not found'})", flush=True)
         return
-    print(f"idoracing-moza: testing LEDs on {moza.port_path}...")
+    print(f"idoracing-moza: testing LEDs on {moza.port_path}...", flush=True)
     try:
         # Step 1: progressive LED fill (1 to 10)
         for i in range(1, NUM_LEDS + 1):
@@ -220,7 +236,7 @@ def sweep_test(port: str | None = None) -> None:
             time.sleep(0.08)
             moza.send_bytes(encode_rpm_leds(0))
             time.sleep(0.08)
-        print("idoracing-moza: test completed successfully")
+        print("idoracing-moza: test completed successfully", flush=True)
     finally:
         moza.close()
 
@@ -232,7 +248,7 @@ def run_bridge(port: str | None = None, udp_port: int = UDP_PORT) -> None:
     try:
         sock.bind(("127.0.0.1", udp_port))
     except OSError as err:
-        print(f"idoracing-moza: cannot bind UDP port {udp_port} ({err}); another instance might be running")
+        print(f"idoracing-moza: cannot bind UDP port {udp_port} ({err}); another instance might be running", flush=True)
         sock.close()
         return
     sock.setblocking(False)
@@ -246,7 +262,9 @@ def run_bridge(port: str | None = None, udp_port: int = UDP_PORT) -> None:
     signal.signal(signal.SIGINT, on_signal)
     signal.signal(signal.SIGTERM, on_signal)
 
-    print(f"idoracing-moza: listening on UDP 127.0.0.1:{udp_port} (waiting for telemetry to connect wheel)...")
+    print(
+        f"idoracing-moza: listening on UDP 127.0.0.1:{udp_port} (waiting for telemetry to connect wheel)...", flush=True
+    )
 
     last_device_check = 0.0
 
@@ -266,7 +284,7 @@ def run_bridge(port: str | None = None, udp_port: int = UDP_PORT) -> None:
                     if moza.fd is None and (now - last_device_check) > 2.0:
                         last_device_check = now
                         if moza.open():
-                            print(f"idoracing-moza: connected to Moza on {moza.port_path}")
+                            print(f"idoracing-moza: connected to Moza on {moza.port_path}", flush=True)
                     if moza.fd is not None:
                         moza.update_rpm(rpm, max_rpm, now)
                 else:
@@ -278,7 +296,7 @@ def run_bridge(port: str | None = None, udp_port: int = UDP_PORT) -> None:
 
     moza.close()
     sock.close()
-    print("idoracing-moza: bridge stopped cleanly")
+    print("idoracing-moza: bridge stopped cleanly", flush=True)
 
 
 if __name__ == "__main__":

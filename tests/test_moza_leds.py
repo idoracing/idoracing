@@ -17,36 +17,70 @@ from tools.moza_leds import (
 
 
 def test_build_frame_checksum():
-    # Frame with cmd [4] and payload [1]: len = 2
-    # [0x7E, 2, 0x3F, 0x00, 0x04, 0x01]
-    # Sum = 126 + 2 + 63 + 0 + 4 + 1 = 196
-    # Checksum = (13 + 196) % 256 = 209 (0xD1)
-    frame = build_frame(group=0x3F, dev_id=0x00, cmd_id=[0x04], payload=[0x01])
-    assert frame == bytes([0x7E, 0x02, 0x3F, 0x00, 0x04, 0x01, 0xD1])
+    # Frame with cmd [28, 0] and payload [1]: len = 3
+    # [0x7E, 3, 0x3F, 0x17, 0x1C, 0x00, 0x01]
+    # Sum = 126 + 3 + 63 + 23 + 28 + 0 + 1 = 244
+    # Checksum = (13 + 244) % 256 = 257 % 256 = 1
+    frame = build_frame(group=0x3F, dev_id=0x17, cmd_id=[0x1C, 0x00], payload=[0x01])
+    assert frame == bytes([0x7E, 0x03, 0x3F, 0x17, 0x1C, 0x00, 0x01, 0x01])
 
 
 def test_encode_rpm_mode():
     enable = encode_rpm_mode(True)
-    assert enable == bytes([0x7E, 0x02, 0x3F, 0x00, 0x04, 0x01, 0xD1])
+    # Wheel dev 0x17 and 0x15
+    assert enable == bytes(
+        [
+            0x7E,
+            0x03,
+            0x3F,
+            0x17,
+            0x1C,
+            0x00,
+            0x01,
+            0x01,
+            0x7E,
+            0x03,
+            0x3F,
+            0x15,
+            0x1C,
+            0x00,
+            0x01,
+            0xFF,
+        ]
+    )
 
     disable = encode_rpm_mode(False)
-    # Sum = 126 + 2 + 63 + 0 + 4 + 0 = 195 -> Checksum = (13 + 195) % 256 = 208 (0xD0)
-    assert disable == bytes([0x7E, 0x02, 0x3F, 0x00, 0x04, 0x00, 0xD0])
+    # Payload 0 -> sum 243 -> (13 + 243) % 256 = 0x00 for 0x17; sum 241 -> 0xFE for 0x15
+    assert disable == bytes(
+        [
+            0x7E,
+            0x03,
+            0x3F,
+            0x17,
+            0x1C,
+            0x00,
+            0x00,
+            0x00,
+            0x7E,
+            0x03,
+            0x3F,
+            0x15,
+            0x1C,
+            0x00,
+            0x00,
+            0xFE,
+        ]
+    )
 
 
 def test_encode_rpm_leds():
     # 0 LEDs: bitmask 0 -> low 0, high 0
     off = encode_rpm_leds(0)
-    assert off[0] == 0x7E
-    assert off[1] == 4  # len([0x1A, 0x00]) + len([0, 0])
-    assert off[2] == 0x3F
-    assert off[3] == 0x00
-    assert off[4:6] == bytes([0x1A, 0x00])
-    assert off[6:8] == bytes([0x00, 0x00])
+    assert off.startswith(bytes([0x7E, 0x04, 0x3F, 0x17, 0x1A, 0x00, 0x00, 0x00]))
 
     # All 10 LEDs on: bitmask 0x3FF (1023) -> low 0xFF, high 0x03
     all_on = encode_rpm_leds((1 << NUM_LEDS) - 1)
-    assert all_on[6:8] == bytes([0xFF, 0x03])
+    assert all_on.startswith(bytes([0x7E, 0x04, 0x3F, 0x17, 0x1A, 0x00, 0xFF, 0x03]))
 
 
 def test_calc_led_bitmask():
@@ -86,22 +120,22 @@ def test_moza_controller_pty_mock():
         assert controller.open() is True
 
         # Initial frame sent upon open should be encode_rpm_mode(True)
-        init_data = os.read(master_fd, 64)
+        init_data = os.read(master_fd, 256)
         assert init_data == encode_rpm_mode(True)
 
         # Update RPM in progressive range (e.g. 5 LEDs)
         controller.update_rpm(rpm=6850, max_rpm=8000, now=1.0)
-        led_data = os.read(master_fd, 64)
-        assert led_data.startswith(bytes([0x7E, 0x04, 0x3F, 0x00, 0x1A, 0x00]))
+        led_data = os.read(master_fd, 256)
+        assert led_data.startswith(bytes([0x7E, 0x04, 0x3F, 0x17, 0x1A, 0x00]))
 
         # Timeout check: after 2 seconds idle, turn off LEDs
         controller.check_timeout(now=3.5)
-        off_data = os.read(master_fd, 64)
+        off_data = os.read(master_fd, 256)
         assert off_data == encode_rpm_leds(0)
 
         # Close controller: sends LEDs 0 and mode False
         controller.close()
-        close_data = os.read(master_fd, 64)
+        close_data = os.read(master_fd, 256)
         assert close_data == encode_rpm_leds(0) + encode_rpm_mode(False)
     finally:
         os.close(master_fd)
@@ -116,17 +150,15 @@ def test_udp_telemetry_flow():
     try:
         controller = MozaController(port=slave_name)
         assert controller.open() is True
-        _ = os.read(master_fd, 64)  # drain init
+        _ = os.read(master_fd, 256)  # drain init
 
         # Decode simulated JSON telemetry packet
         raw = json.dumps({"rpm": 7800, "max_rpm": 8000, "gear": 3, "speed_kmh": 160.0}).encode()
         data = json.loads(raw.decode("utf-8"))
         controller.update_rpm(rpm=float(data["rpm"]), max_rpm=float(data["max_rpm"]), now=1.0)
 
-        led_data = os.read(master_fd, 64)
-        assert len(led_data) == 9
-        assert led_data[0] == 0x7E
-        assert led_data[6:8] == bytes([0xFF, 0x03])  # all 10 LEDs flashing on
+        led_data = os.read(master_fd, 256)
+        assert led_data.startswith(bytes([0x7E, 0x04, 0x3F, 0x17, 0x1A, 0x00, 0xFF, 0x03]))
 
         controller.close()
     finally:

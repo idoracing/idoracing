@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Moza Steering Wheel Shift LEDs & Telemetry Protocol**:
+  - Corrected steering wheel target addressing and telemetry handshake in `tools/moza_leds.py`: frames are now sent to standard Moza wheel device IDs `0x17` (ID 23) and `0x15` (ID 21) instead of base ID `0x00`.
+  - Converted telemetry activation to group 63 (`0x3F`) command `[28, 0]` (`[0x1C, 0x00]`) and enabled dual RPM/button LED channels (`[26, 0]` and `[26, 1]`).
+  - Added `-u` unbuffered flag (`python3 -u`) and `line_buffering=True` to prevent logging loss in `acc-with-recorder.sh` and `sim-with-recorder.sh`.
+
 ### Changed
 - **HUD Clean Branding & Radio Presentation**:
   - Replaced technical CPU/OS background specs in the HUD footer overlay with clean race-focused branding (`IdoRacing Telemetry  ·  Pep on Pit Wall`).
