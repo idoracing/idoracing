@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Revamped Documentation & Architecture Overview (`README.md` & `recorder/README.md`)**:
   - Restructured `README.md` around the two-tier architecture: **Zero-Overhead Race Mode** (100% native Go supervisor, recorder, HUD, and Moza LED engine with zero Python/web server on track) and **Post-Session Debrief Mode** (Python + React 19 analytics dashboard and Pep AI engineer).
   - Documented native Go supervisor compilation, CLI flags, Boxflat coexistence, and simulator launch commands.
+  - Added direct download links and release badges pointing to the latest precompiled multi-platform binaries (`idoracing-windows-amd64.zip`, `idoracing-linux-amd64.tar.gz`, `idoracing-linux-arm64.tar.gz`).
 - **HUD Clean Branding & Radio Presentation**:
   - Replaced technical CPU/OS background specs in the HUD footer overlay with clean race-focused branding (`IdoRacing Telemetry  ·  Pep on Pit Wall`).
   - Standardized real-time telemetry badge labels and radio status cues to English (`>>> TRAIL BRAKING ACTIVE <<<`, `[#] Pep: Active`, `[X] Pep: MUTED`).

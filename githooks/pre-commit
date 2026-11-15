@@ -133,7 +133,7 @@ if [ -n "$staged_files" ]; then
 	while IFS= read -r file; do
 		if [ "$file" = "CHANGELOG.md" ]; then
 			has_changelog=1
-		elif [[ "$file" =~ ^(api/|coach/|analysis/|frontend/src/|recorder/|importers/|storage/|domain/) ]]; then
+		elif [[ "$file" =~ ^(api/|coach/|analysis/|frontend/src/|recorder/|importers/|storage/|domain/) ]] && [[ ! "$file" =~ \.md$ ]]; then
 			has_code_changes=1
 		fi
 	done <<< "$staged_files"

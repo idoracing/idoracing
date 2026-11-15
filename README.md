@@ -4,6 +4,7 @@
 > **Multi-sim telemetry analysis, real-time pit-wall spotter & native zero-overhead launcher. Built for faster laps.**
 
 [![CI](https://github.com/miquelbar/idoracing/actions/workflows/ci.yml/badge.svg)](https://github.com/miquelbar/idoracing/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/miquelbar/idoracing?logo=github&label=Release)](https://github.com/miquelbar/idoracing/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Go: 1.22+](https://img.shields.io/badge/Go-1.22+-00ADD8.svg?logo=go)](https://go.dev/)
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
@@ -157,9 +158,18 @@ IdoRacing provides first-class support for **MOZA Racing** hardware on Linux wit
 
 ## 🎮 How to Record Telemetry in Your Sim
 
+### 📦 Download Precompiled Binaries (Latest Release)
+
+Download ready-to-use standalone binaries from the **[Latest Release](https://github.com/miquelbar/idoracing/releases/latest)**:
+- 🐧 **[Linux x86_64 (`idoracing-linux-amd64.tar.gz`)](https://github.com/miquelbar/idoracing/releases/latest/download/idoracing-linux-amd64.tar.gz)**: Includes `bin/idoracing-launcher`, `bin/idoracing-hud`, `idoracing-recorder.exe` (for Proton), and offline voice cues.
+- 🪟 **[Windows x86_64 (`idoracing-windows-amd64.zip`)](https://github.com/miquelbar/idoracing/releases/latest/download/idoracing-windows-amd64.zip)**: Includes silent background `idoracing-recorder.exe` and `idoracing-launcher.exe`.
+- 📱 **[Linux ARM64 (`idoracing-linux-arm64.tar.gz`)](https://github.com/miquelbar/idoracing/releases/latest/download/idoracing-linux-arm64.tar.gz)**: Standalone `idoracing-launcher` for ARM systems.
+
+---
+
 ### 🚀 Linux (Steam + Proton) — Universal Setup (Recommended)
 
-1. **Compile the native launcher** (done automatically if using repo scripts):
+1. **Compile the native launcher** (or extract the precompiled archive above):
    ```bash
    cd recorder && go build -trimpath -ldflags="-s -w" -o bin/idoracing-launcher ./cmd/launcher
    ```

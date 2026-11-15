@@ -50,6 +50,13 @@ The recorder and its companion native supervisor (`idoracing-launcher`) include 
 }
 ```
 
+## 📦 Download Standalone Binaries
+
+Download precompiled standalone binaries from the **[Latest Release](https://github.com/miquelbar/idoracing/releases/latest)**:
+- 🐧 **Linux (amd64)**: [`idoracing-linux-amd64.tar.gz`](https://github.com/miquelbar/idoracing/releases/latest/download/idoracing-linux-amd64.tar.gz)
+- 🪟 **Windows (amd64)**: [`idoracing-windows-amd64.zip`](https://github.com/miquelbar/idoracing/releases/latest/download/idoracing-windows-amd64.zip)
+- 📱 **Linux (arm64)**: [`idoracing-linux-arm64.tar.gz`](https://github.com/miquelbar/idoracing/releases/latest/download/idoracing-linux-arm64.tar.gz)
+
 ## Build
 
 ```bash
