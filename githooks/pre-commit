@@ -110,9 +110,9 @@ if command -v go >/dev/null 2>&1 && [ -d "$REPO_ROOT/recorder" ]; then
 		exit 1
 	}
 
-	echo "pre-commit: running Linux sim launcher tests in recorder/linux/..."
-	(cd "$REPO_ROOT/recorder" && bash linux/test-acc-with-recorder.sh && bash linux/test-sim-launchers.sh) || {
-		echo "pre-commit: Linux sim launcher tests failed! Fix launcher scripts/tests before committing." >&2
+	echo "pre-commit: building native Linux launcher in recorder/bin/idoracing-launcher..."
+	(cd "$REPO_ROOT/recorder" && go build -trimpath -ldflags="-s -w" -o bin/idoracing-launcher ./cmd/launcher) || {
+		echo "pre-commit: native Linux launcher build failed! Fix launcher code before committing." >&2
 		exit 1
 	}
 

@@ -949,7 +949,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                           Para registrar acelerador, freno, volante, fuerzas G y trazada GPS completa a 50Hz sin inventar datos, añade a Parámetros de lanzamiento en Steam:
                         </p>
                         <code className="block p-1.5 rounded bg-black/60 border border-white/10 text-brand text-[10px] font-mono select-all">
-                          /home/miquel/git/acc-coach/recorder/linux/sim-with-recorder.sh %command%
+                          /path/to/idoracing/recorder/bin/idoracing-launcher %command%
                         </code>
                         <div className="pt-1 text-[10px] text-gray-400 border-t border-white/5 space-y-1">
                           <div>
@@ -1135,7 +1135,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                         Estas vueltas se importaron de un archivo XML o resumen sin telemetría física. Para grabar automáticamente a 50Hz (frenada, acelerador, volante y trazada GPS), añade a los parámetros de lanzamiento en Steam:
                       </p>
                       <code className="block p-1.5 rounded bg-black/60 border border-white/10 text-brand text-[10px] font-mono select-all">
-                        /home/miquel/git/acc-coach/recorder/linux/sim-with-recorder.sh %command%
+                        /path/to/idoracing/recorder/bin/idoracing-launcher %command%
                       </code>
                     </div>
                   )}
@@ -1286,14 +1286,14 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   Abre el setup en el garaje. En <strong>Electrónica</strong>, pon <strong>Telemetry Laps &gt; 0</strong> para generar archivos <code className="text-gray-300">.ld</code> en MoTeC.
                 </p>
                 <p className="text-[11px] text-gray-400">
-                  Para registrar trazada GPS: lanza en Steam con <code className="text-brand">acc-with-recorder.sh %command%</code>.
+                  Para registrar trazada GPS: lanza en Steam con <code className="text-brand">bin/idoracing-launcher %command%</code>.
                 </p>
               </div>
 
               <div className="p-4 rounded-xl bg-night-3 border border-blue-500/20 space-y-1.5">
                 <span className="font-bold text-blue-400 block text-sm">Le Mans Ultimate</span>
                 <p className="text-gray-300">
-                  <strong>Grabador IdoRacing (50Hz + GPS):</strong> Lanza LMU en Steam con <code className="text-brand">lmu-with-recorder.sh %command%</code>.
+                  <strong>Grabador IdoRacing (50Hz + GPS):</strong> Lanza LMU en Steam con <code className="text-brand">bin/idoracing-launcher %command%</code>.
                 </p>
                 <p className="text-[11px] text-gray-400">
                   Resultados XML: se importan automáticamente desde <code className="text-gray-300">UserData/Log/Results</code>.
@@ -1306,7 +1306,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   En el garaje, pon <strong>Telemetry Laps &gt; 0</strong>. Guarda los .ld en <code className="text-gray-300">Saved Games/ACE/MoTec/</code>.
                 </p>
                 <p className="text-[11px] text-gray-400">
-                  O usa el grabador con <code className="text-brand">acevo-with-recorder.sh %command%</code>.
+                  O usa el grabador con <code className="text-brand">bin/idoracing-launcher %command%</code>.
                 </p>
                 <p className="text-[11px] text-cyan-300 font-semibold pt-1 border-t border-white/5">
                   💡 Para ver setup completo (alerón, alturas, electrónica): pulsa <strong>&quot;Guardar Setup&quot;</strong> en el garaje (genera el <code>.carsetup</code>).
@@ -1316,7 +1316,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
               <div className="p-4 rounded-xl bg-night-3 border border-orange-500/20 space-y-1.5">
                 <span className="font-bold text-orange-400 block text-sm">Assetto Corsa 1 & AC Rally</span>
                 <p className="text-gray-400">
-                  Tanto en circuito como en tramos de rally: lanza en Steam con <code className="text-brand">ac-with-recorder.sh %command%</code> para capturar 50Hz, pedales y trazada abierta.
+                  Tanto en circuito como en tramos de rally: lanza en Steam con <code className="text-brand">bin/idoracing-launcher %command%</code> para capturar 50Hz, pedales y trazada abierta.
                 </p>
                 <p className="text-[11px] text-gray-400">
                   O exporta telemetría MoTeC con Content Manager / ACTIR a archivos .ld.
@@ -1333,7 +1333,7 @@ export const SessionsView: React.FC<SessionsViewProps> = ({
                   <code className="block mt-1 p-1 bg-black/40 rounded text-amber-300 text-[10px] select-all">&lt;udp enabled="true" extradata="3" ip="127.0.0.1" port="20777" /&gt;</code>
                 </p>
                 <p className="text-[11px] text-gray-400">
-                  Lanza en Steam con <code className="text-brand">dr2-with-recorder.sh %command%</code>.
+                  Lanza en Steam con <code className="text-brand">bin/idoracing-launcher %command%</code>.
                 </p>
               </div>
 

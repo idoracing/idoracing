@@ -28,12 +28,11 @@ PYTEST="$REPO_ROOT/.venv/bin/pytest"
 "$RUFF" format --check "$REPO_ROOT"
 PYTHONPATH="$REPO_ROOT" "$PYTEST" "$REPO_ROOT/tests" -q
 
-echo "pre-push: [4/5] Running Recorder CI checks (go test + launcher scripts + Windows cross-build)..."
+echo "pre-push: [4/5] Running Recorder CI checks (go test + launcher build & scripts + Windows cross-build)..."
 (
 	cd "$REPO_ROOT/recorder"
 	go test ./...
-	bash linux/test-acc-with-recorder.sh
-	bash linux/test-sim-launchers.sh
+	go build -trimpath -ldflags="-s -w" -o bin/idoracing-launcher ./cmd/launcher
 	GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o idoracing-recorder.exe .
 	cp -f idoracing-recorder.exe linux/idoracing-recorder.exe
 )

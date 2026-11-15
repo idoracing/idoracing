@@ -347,7 +347,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
                         <>
                           Enable the plugin in <code className="text-brand">UserData/player/CustomPluginVariables.json</code> (set <code className="text-brand">"rFactor2SharedMemoryMapPlugin64.dll": &#123; " Enabled": 1 &#125;</code>) and in Steam Launch Options add:
                           <code className="block mt-1 p-1.5 bg-black/50 border border-white/10 rounded font-mono text-[11px] text-brand select-all">
-                            /path/to/recorder/linux/lmu-with-recorder.sh %command%
+                            /path/to/recorder/bin/idoracing-launcher %command%
                           </code>
                           Automatically records speed, pedals, steering, G-forces and track coordinates $(x, y)$.
                         </>
@@ -355,7 +355,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
                         <>
                           Activa el plugin en <code className="text-brand">UserData/player/CustomPluginVariables.json</code> (pon <code className="text-brand">"rFactor2SharedMemoryMapPlugin64.dll": &#123; " Enabled": 1 &#125;</code>) y en Parámetros de Lanzamiento de Steam añade:
                           <code className="block mt-1 p-1.5 bg-black/50 border border-white/10 rounded font-mono text-[11px] text-brand select-all">
-                            /path/to/recorder/linux/lmu-with-recorder.sh %command%
+                            /path/to/recorder/bin/idoracing-launcher %command%
                           </code>
                           Graba automáticamente velocidad, pedales, dirección, fuerzas G y trazada $(x, y)$ a 50Hz.
                         </>
@@ -398,7 +398,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
                     Al volver a boxes, AC EVO guardará los archivos <code className="text-brand">.ld</code> en <code className="text-gray-300">Saved Games/ACE/MoTec/</code>.
                   </li>
                   <li>
-                    También puedes usar el grabador integrado en Steam: <code className="text-brand">acevo-with-recorder.sh %command%</code>.
+                    También puedes usar el grabador integrado en Steam: <code className="text-brand">bin/idoracing-launcher %command%</code>.
                   </li>
                 </ol>
               ) : isDR2 ? (
@@ -412,7 +412,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
                   <li>
                     En los Parámetros de Lanzamiento de Steam pon:
                     <code className="block mt-1 p-1 bg-black/40 rounded font-mono text-[11px] text-brand select-all">
-                      /path/to/recorder/linux/dr2-with-recorder.sh %command%
+                      /path/to/recorder/bin/idoracing-launcher %command%
                     </code>
                   </li>
                   <li>
@@ -424,7 +424,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
                   <li>
                     En <strong>Assetto Corsa</strong>, puedes usar el grabador integrado de IdoRacing en Steam:
                     <code className="block mt-1 p-1 bg-black/40 rounded font-mono text-[11px] text-brand select-all">
-                      /path/to/recorder/linux/ac-with-recorder.sh %command%
+                      /path/to/recorder/bin/idoracing-launcher %command%
                     </code>
                   </li>
                   <li>
@@ -446,7 +446,7 @@ export const TelemetryView: React.FC<TelemetryViewProps> = ({
                     Al volver a boxes, ACC guardará los archivos <code className="text-brand">.ld</code> en <code className="text-gray-300">Documents/Assetto Corsa Competizione/MoTeC/</code>.
                   </li>
                   <li>
-                    Para obtener posición en pista (GPS) y comparar trazadas, usa en Steam: <code className="text-brand">acc-with-recorder.sh %command%</code>.
+                    Para obtener posición en pista (GPS) y comparar trazadas, usa en Steam: <code className="text-brand">bin/idoracing-launcher %command%</code>.
                   </li>
                 </ol>
               )}

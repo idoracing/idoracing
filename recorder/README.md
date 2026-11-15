@@ -6,16 +6,16 @@ It runs on its own; the IdoRacing app does not need to be open while you drive. 
 
 ## Supported Simulators
 
-| Simulator | Detection Flag (`-sim`) | Process / Shared Memory / Network | Launch Script |
+| Simulator | Detection Flag (`-sim`) | Process / Shared Memory / Network | Supervisor Command |
 | :--- | :--- | :--- | :--- |
-| **Assetto Corsa Competizione** | `acc` (default) | `AC2-Win64-Shipping.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `linux/acc-with-recorder.sh` |
-| **Le Mans Ultimate** | `lmu` | `Le Mans Ultimate.exe`<br>`$rFactor2SMMP_Telemetry$`, `$rFactor2SMMP_Scoring$` | `linux/lmu-with-recorder.sh` |
-| **Assetto Corsa 1** | `ac` | `acs.exe`, `AssettoCorsa.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `linux/ac-with-recorder.sh` |
-| **Assetto Corsa Rally** | `ac` | `acs.exe`, `AssettoCorsa.exe`<br>Point-to-point stages without false loop closure | `linux/ac-with-recorder.sh` |
-| **Assetto Corsa EVO** | `acevo` | `AssettoCorsaEVO.exe`<br>`Local\acevo_pmf_*` (fallback `Local\acpmf_*`) | `linux/acevo-with-recorder.sh` |
-| **DiRT Rally 2.0** | `dr2` | `dirtrally2.exe`<br>UDP `127.0.0.1:20777` (`extradata=3`) | `linux/dr2-with-recorder.sh` |
-| **EA SPORTS WRC** | `dr2` | `WRC.exe`<br>UDP `127.0.0.1:20777` (`extradata=3`) | `linux/dr2-with-recorder.sh` |
-| **Auto-Detect All** | `auto` | Detects via running processes, memory maps, or UDP ports | `linux/sim-with-recorder.sh` |
+| **Assetto Corsa Competizione** | `acc` (default) | `AC2-Win64-Shipping.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `bin/idoracing-launcher %command%` |
+| **Le Mans Ultimate** | `lmu` | `Le Mans Ultimate.exe`<br>`$rFactor2SMMP_Telemetry$`, `$rFactor2SMMP_Scoring$` | `bin/idoracing-launcher -sim lmu %command%` |
+| **Assetto Corsa 1** | `ac` | `acs.exe`, `AssettoCorsa.exe`<br>`Local\acpmf_physics`, `graphics`, `static` | `bin/idoracing-launcher -sim ac %command%` |
+| **Assetto Corsa Rally** | `ac` | `acs.exe`, `AssettoCorsa.exe`<br>Point-to-point stages without false loop closure | `bin/idoracing-launcher -sim acrally %command%` |
+| **Assetto Corsa EVO** | `acevo` | `AssettoCorsaEVO.exe`<br>`Local\acevo_pmf_*` (fallback `Local\acpmf_*`) | `bin/idoracing-launcher -sim acevo %command%` |
+| **DiRT Rally 2.0** | `dr2` | `dirtrally2.exe`<br>UDP `127.0.0.1:20777` (`extradata=3`) | `bin/idoracing-launcher -sim dr2 %command%` |
+| **EA SPORTS WRC** | `dr2` | `WRC.exe`<br>UDP `127.0.0.1:20777` (`extradata=3`) | `bin/idoracing-launcher -sim dr2 %command%` |
+| **Auto-Detect All** | `auto` | Detects via running processes, memory maps, or UDP ports | `bin/idoracing-launcher %command%` |
 
 ## Footprint
 
@@ -26,7 +26,7 @@ It runs on its own; the IdoRacing app does not need to be open while you drive. 
 
 ## 📻 Pep Live Spotter & Pit-Wall Radio System
 
-The recorder and its companion Linux launch scripts (`sim-with-recorder.sh`, `acc-with-recorder.sh`, `ac-with-recorder.sh`, etc.) include an integrated, **zero-daemon live audio spotter** ("Pep"). It delivers real-time voice cues directly to your headset while driving with **0% CPU / 0% GPU overhead** and **without requiring any web server, Python daemon, or browser to be open**:
+The recorder and its companion native supervisor (`idoracing-launcher`) include an integrated, **zero-daemon live audio spotter** ("Pep"). It delivers real-time voice cues directly to your headset while driving with **0% CPU / 0% GPU overhead** and **without requiring any web server, Python daemon, or browser to be open**:
 
 ### 🎯 Universal Distance Engine (Circuits & Rally Stages)
 - **Circuit & Point-to-Point Support**: Generic displacement integration ($\Delta d = \sqrt{\Delta x^2 + \Delta y^2}$, $\int v \, dt$) powers both closed race circuits (ACC, LMU, AC1, AC EVO, iRacing) and linear point-to-point stages (Assetto Corsa Rally, DiRT Rally 2.0, EA SPORTS WRC) from start to finish.
@@ -54,10 +54,16 @@ The recorder and its companion Linux launch scripts (`sim-with-recorder.sh`, `ac
 
 ```bash
 cd recorder
+
+# 1. Build native Linux launcher supervisor
+go build -trimpath -ldflags="-s -w" -o bin/idoracing-launcher ./cmd/launcher
+
+# 2. Build Windows recorder executable (runs silently under Proton/Wine or Windows)
 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o idoracing-recorder.exe .
+cp -f idoracing-recorder.exe linux/idoracing-recorder.exe
+
+# 3. Run test suites
 go test ./...
-bash linux/test-acc-with-recorder.sh
-bash linux/test-sim-launchers.sh
 ```
 
 ## Run on Linux (Steam + Proton)
@@ -66,33 +72,30 @@ bash linux/test-sim-launchers.sh
 > **Proton Version & Compatibility Warnings:**
 > - **ACC & MOZA Hardware**: Run with official **Proton 9.0 (Default)**, **Proton Experimental**, or **GE-Proton 11-7+**. If using MOZA hardware (wheelbase/pedals) and ACC hangs indefinitely on the track loading screen, switch to **`GE-Proton11-7`** to resolve DirectInput USB HID enumeration contention.
 > - **LMU**: Requires **GE-Proton** (or custom builds with `bcrypt` & DirectInput patches) for shared memory and FFB.
-> - **NVAPI Overrides Warning (`PROTON_ENABLE_NVAPI=1` / `DXVK_ENABLE_NVAPI=1`)**: Do **NOT** force NVAPI overrides in Steam launch options on NVIDIA GPUs. Under Wine/Proton, NVAPI with DXVK deadlocks ACC's `RenderThread` indefinitely during track loading. The launcher scripts automatically unset and disable NVAPI overrides (`DXVK_ENABLE_NVAPI=0`).
+> - **NVAPI Overrides Warning (`PROTON_ENABLE_NVAPI=1` / `DXVK_ENABLE_NVAPI=1`)**: Do **NOT** force NVAPI overrides in Steam launch options on NVIDIA GPUs. Under Wine/Proton, NVAPI with DXVK deadlocks ACC's `RenderThread` indefinitely during track loading. The launcher automatically unsets and disables NVAPI overrides (`DXVK_ENABLE_NVAPI=0`).
 
-The simulator's shared memory only exists inside the wineserver that runs the game, so the recorder has to run in the same Proton prefix, with the same Proton build and the same fsync/esync setting. The launch-option scripts take care of that by reusing the Proton from the command Steam builds:
+The simulator's shared memory only exists inside the wineserver that runs the game, so the recorder has to run in the same Proton prefix, with the same Proton build and the same fsync/esync setting. The unified Go supervisor (`bin/idoracing-launcher`) takes care of that by reusing the Proton runtime from the command Steam builds, supervising signals, audio spotter events, and Moza LED serial communication with zero background memory footprint:
 
-1. Put `idoracing-recorder.exe` next to the `linux/*.sh` scripts.
+1. Build `idoracing-launcher`:
+   ```bash
+   go build -trimpath -ldflags="-s -w" -o bin/idoracing-launcher ./cmd/launcher
+   ```
 2. In Steam: Sim Properties > General > Launch options:
 
    - **Universal (Recommended for all sims):**
      ```text
-     /path/to/recorder/linux/sim-with-recorder.sh %command%
+     /path/to/recorder/bin/idoracing-launcher %command%
      ```
    - **With GameMode (Recommended on Linux):**
      ```text
-     gamemoderun /path/to/recorder/linux/sim-with-recorder.sh %command%
+     gamemoderun /path/to/recorder/bin/idoracing-launcher %command%
      ```
    - **With GameMode & MangoHud:**
      ```text
-     mangohud gamemoderun /path/to/recorder/linux/sim-with-recorder.sh %command%
+     mangohud gamemoderun /path/to/recorder/bin/idoracing-launcher %command%
      ```
-   - **Dedicated sim scripts (all still 100% supported):**
-     - **ACC:** `/path/to/recorder/linux/acc-with-recorder.sh %command%`
-     - **LMU:** `/path/to/recorder/linux/lmu-with-recorder.sh %command%`
-     - **AC1 / AC Rally:** `/path/to/recorder/linux/ac-with-recorder.sh %command%`
-     - **AC EVO:** `/path/to/recorder/linux/acevo-with-recorder.sh %command%`
-     - **DiRT Rally 2.0 / EA WRC:** `/path/to/recorder/linux/dr2-with-recorder.sh %command%`
 
-3. Start the game from Steam as usual. The recorder starts 10 seconds later and stops by itself a few seconds after the game closes. Its log is in `~/.local/state/idoracing-recorder.log`.
+3. Start the game from Steam as usual. The recorder starts automatically and stops by itself a few seconds after the game closes. Its log is in `~/.local/state/idoracing-recorder.log`.
 
 If the recorder is missing or the launch command has no Proton, the game starts normally without it. `IDORACING_RECORDER`, `IDORACING_RECORDER_DELAY` and `IDORACING_RECORDER_LOG` override the executable, the delay and the log path.
 
@@ -115,7 +118,7 @@ LMU uses the standard rFactor 2 shared memory architecture:
   }
 }
 ```
-3. Set your Steam Launch Options to `gamemoderun /path/to/recorder/linux/sim-with-recorder.sh %command%` (or `lmu-with-recorder.sh %command%`).
+3. Set your Steam Launch Options to `gamemoderun /path/to/recorder/bin/idoracing-launcher %command%`.
 4. On Windows, just start `idoracing-recorder.exe -sim lmu` (or use `-sim auto`).
 
 ### Check it under Wine before driving (ACC and LMU Fake Sim)
@@ -202,7 +205,7 @@ time,lap,lap_distance,speed,throttle,brake,gear,steer_angle,rpm,lat_accel,long_a
 ## Verified on live ACC sessions
 
 - Built with `-H=windowsgui` so it runs silently in the background without creating a console window or interrupting fullscreen focus.
-- Automatically joins the game's Steam Linux Runtime container via `acc-with-recorder.sh --verb=run`.
+- Automatically joins the game's Steam Linux Runtime container via `idoracing-launcher`.
 - Real world coordinates `(x, y)` match circuit layouts (tested and verified on Valencia).
 - Lateral and longitudinal accelerations follow physical conventions.
 - Laps cut-short or exceeding track limits are flagged automatically using ACC's native `lap_valid` signal.

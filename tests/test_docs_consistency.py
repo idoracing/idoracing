@@ -21,13 +21,9 @@ CANONICAL_SIMULATORS = [
     "iRacing",
 ]
 
-LAUNCH_SCRIPTS = [
-    "sim-with-recorder.sh",
-    "acc-with-recorder.sh",
-    "lmu-with-recorder.sh",
-    "ac-with-recorder.sh",
-    "acevo-with-recorder.sh",
-    "dr2-with-recorder.sh",
+CANONICAL_BINARIES = [
+    "idoracing-launcher",
+    "idoracing-recorder.exe",
 ]
 
 
@@ -49,16 +45,32 @@ def test_recorder_readme_documents_all_supported_simulators():
         )
 
 
-def test_readme_documents_all_launch_scripts():
+def test_readme_documents_canonical_binaries():
     readme_text = README_PATH.read_text(encoding="utf-8")
-    for script in LAUNCH_SCRIPTS:
-        assert script in readme_text, f"README.md is missing reference to launch script: '{script}'"
+    for binary in CANONICAL_BINARIES:
+        assert binary in readme_text, f"README.md is missing reference to binary: '{binary}'"
 
 
-def test_recorder_readme_documents_all_launch_scripts():
+def test_recorder_readme_documents_canonical_binaries():
     recorder_readme_text = RECORDER_README_PATH.read_text(encoding="utf-8")
-    for script in LAUNCH_SCRIPTS:
-        assert script in recorder_readme_text, f"recorder/README.md is missing reference to launch script: '{script}'"
+    for binary in CANONICAL_BINARIES:
+        assert binary in recorder_readme_text, f"recorder/README.md is missing reference to binary: '{binary}'"
+
+
+def test_no_legacy_shell_launchers_in_tree():
+    """Ensure no legacy .sh launcher wrappers remain in recorder/linux/."""
+    legacy_launchers = [
+        "sim-with-recorder.sh",
+        "acc-with-recorder.sh",
+        "lmu-with-recorder.sh",
+        "ac-with-recorder.sh",
+        "acevo-with-recorder.sh",
+        "dr2-with-recorder.sh",
+        "idoracing-launch.sh",
+    ]
+    for script in legacy_launchers:
+        p = ROOT / "recorder" / "linux" / script
+        assert not p.exists(), f"Legacy launcher shell script {script} must not exist in {p}"
 
 
 def test_no_already_supported_simulators_in_readme_wishlist():

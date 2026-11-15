@@ -10,7 +10,6 @@ import os
 import socket
 import struct
 import subprocess
-import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ET
@@ -656,23 +655,19 @@ async def live_telemetry_ws(websocket: WebSocket):
 
 @app.post("/api/hud/launch")
 def launch_native_hud():
-    """Launch the native 100% Go or PySide6 overlay on Linux."""
+    """Launch the native 100% Go overlay on Linux."""
     global hud_process
     if hud_process is not None and hud_process.poll() is None:
         return {"status": "already_running", "pid": hud_process.pid}
 
     repo_root = Path(__file__).resolve().parent.parent
     go_bin = repo_root / "recorder" / "bin" / "idoracing-hud"
-    hud_script = repo_root / "tools" / "pedal_hud.py"
 
-    cmd: list[str] = []
-    if go_bin.exists() and os.access(go_bin, os.X_OK):
-        cmd = [str(go_bin)]
-    elif hud_script.exists():
-        python_bin = "/usr/bin/python3" if os.path.exists("/usr/bin/python3") else sys.executable
-        cmd = [python_bin, str(hud_script)]
-    else:
-        raise HTTPException(status_code=404, detail="No HUD binary or script found")
+    if not (go_bin.exists() and os.access(go_bin, os.X_OK)):
+        raise HTTPException(
+            status_code=404,
+            detail="Native HUD binary not found at recorder/bin/idoracing-hud. Compile it with: go build -o bin/idoracing-hud ./tools/hud in recorder directory",
+        )
 
     env = os.environ.copy()
     if not env.get("DISPLAY") and env.get("WAYLAND_DISPLAY"):
@@ -680,13 +675,13 @@ def launch_native_hud():
 
     try:
         hud_process = subprocess.Popen(
-            cmd,
+            [str(go_bin)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
             env=env,
         )
-        return {"status": "launched", "pid": hud_process.pid, "type": "go" if cmd == [str(go_bin)] else "python"}
+        return {"status": "launched", "pid": hud_process.pid, "type": "go"}
     except OSError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

@@ -425,7 +425,7 @@ export const CarSetupInspector: React.FC<CarSetupInspectorProps> = ({ setup, onS
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <code className="p-1.5 rounded bg-black/60 border border-white/10 text-brand text-[10px] font-mono select-all">
-              /home/miquel/git/acc-coach/recorder/linux/sim-with-recorder.sh %command%
+              /path/to/idoracing/recorder/bin/idoracing-launcher %command%
             </code>
             <span className="text-[10px] text-gray-400">
               (o ejecuta <code className="text-amber-200 font-mono">idoracing-recorder.exe -sim auto</code> en Windows)

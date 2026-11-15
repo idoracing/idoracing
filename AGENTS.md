@@ -49,7 +49,7 @@ Este documento define las reglas de desarrollo, arquitectura y buenas prácticas
   1. Ejecuta la suite de verificación completa (idéntica a `.github/workflows/ci.yml`):
      - `.venv/bin/ruff check . && .venv/bin/ruff format --check .` (Python lint & format)
      - `.venv/bin/pytest tests/` (Python unit & integration tests)
-     - `cd recorder && go test ./... && bash linux/test-acc-with-recorder.sh && bash linux/test-sim-launchers.sh && GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o /tmp/idoracing-recorder-ci.exe . && rm -f /tmp/idoracing-recorder-ci.exe` (Go tests, Linux launcher scripts & Windows cross-compilation)
+     - `cd recorder && go test ./... && go build -trimpath -ldflags="-s -w" -o bin/idoracing-launcher ./cmd/launcher && GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o /tmp/idoracing-recorder-ci.exe . && rm -f /tmp/idoracing-recorder-ci.exe` (Go unit tests, native launcher build & Windows cross-compilation)
      - `npm run build --prefix frontend && npm run lint --prefix frontend` (Vite / TypeScript build & oxlint)
   2. Muestra un resumen ejecutivo al usuario con:
      - Archivos modificados (`git status -s`).

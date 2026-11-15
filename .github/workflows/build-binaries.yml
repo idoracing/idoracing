@@ -1,0 +1,96 @@
+name: Build & Release Binaries
+
+on:
+  push:
+    branches: [ "master", "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  binaries:
+    name: Build Multi-Platform Binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev
+
+      - name: Compile Windows binaries (amd64)
+        run: |
+          mkdir -p dist/windows-amd64
+          cd recorder
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o ../dist/windows-amd64/idoracing-recorder.exe .
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ../dist/windows-amd64/idoracing-launcher.exe ./cmd/launcher
+          cd ..
+          cp README.md dist/windows-amd64/
+          (cd dist && python3 -m zipfile -c idoracing-windows-amd64.zip windows-amd64)
+
+      - name: Compile Linux binaries (amd64)
+        run: |
+          mkdir -p dist/linux-amd64/bin dist/linux-amd64/linux dist/linux-amd64/voices
+          cd recorder
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ../dist/linux-amd64/bin/idoracing-launcher ./cmd/launcher
+          go build -trimpath -ldflags="-s -w" -o ../dist/linux-amd64/bin/idoracing-hud ./tools/hud
+          # Build Windows recorder binary to run inside Proton on Linux
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -H=windowsgui" -o ../dist/linux-amd64/linux/idoracing-recorder.exe .
+          cd ..
+          chmod +x dist/linux-amd64/bin/*
+          cp -r recorder/voices/es recorder/voices/en dist/linux-amd64/voices/
+          cp README.md dist/linux-amd64/
+          (cd dist && tar -czvf idoracing-linux-amd64.tar.gz linux-amd64)
+
+      - name: Compile Linux launcher (arm64)
+        run: |
+          mkdir -p dist/linux-arm64/bin
+          cd recorder
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o ../dist/linux-arm64/bin/idoracing-launcher ./cmd/launcher
+          cd ..
+          (cd dist && tar -czvf idoracing-linux-arm64.tar.gz linux-arm64)
+
+      - name: Upload Windows amd64 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: idoracing-windows-amd64
+          path: dist/idoracing-windows-amd64.zip
+          retention-days: 14
+
+      - name: Upload Linux amd64 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: idoracing-linux-amd64
+          path: dist/idoracing-linux-amd64.tar.gz
+          retention-days: 14
+
+      - name: Upload Linux arm64 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: idoracing-linux-arm64
+          path: dist/idoracing-linux-arm64.tar.gz
+          retention-days: 14
+
+      - name: Publish GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/idoracing-windows-amd64.zip
+            dist/idoracing-linux-amd64.tar.gz
+            dist/idoracing-linux-arm64.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

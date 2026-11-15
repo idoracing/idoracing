@@ -9,11 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Moza Steering Wheel Shift LEDs & Telemetry Protocol**:
-  - Corrected steering wheel target addressing and telemetry handshake in `tools/moza_leds.py`: frames are now sent to standard Moza wheel device IDs `0x17` (ID 23) and `0x15` (ID 21) instead of base ID `0x00`.
-  - Converted telemetry activation to group 63 (`0x3F`) command `[28, 0]` (`[0x1C, 0x00]`) and enabled dual RPM/button LED channels (`[26, 0]` and `[26, 1]`).
-  - Added `-u` unbuffered flag (`python3 -u`) and `line_buffering=True` to prevent logging loss in `acc-with-recorder.sh` and `sim-with-recorder.sh`.
+  - Corrected steering wheel target addressing and telemetry handshake in `tools/moza_leds.py`: frames are now sent to standard Moza wheel device IDs `0x17` (ID 23) and `0x15` (ID 21) with exact Moza checksum (`13 + sum(frame)`).
+  - Preserved steering wheel button backlights at 100% brightness: isolated RPM telemetry exclusively to command `[26, 0]` (`send-rpm-telemetry`), eliminating inadvertent zeroing of button LEDs via `[26, 1]`.
+  - Added motorsport RGB color palette configuration (`telemetry-rpm-colors`, cmd `[25, 0]`) and 100% brightness initialization (`rpm-brightness`, cmd `[27, 0, 255]`), ensuring vibrant Green -> Yellow -> Red -> Blue illumination and shift flashing.
+  - Added interactive CLI gear-pull simulation mode (`python3 tools/moza_leds.py --simulate`) to test rev light dynamics directly on connected hardware on demand.
 
 ### Changed
+- **Pure Go Architecture / Deprecation and Removal of Legacy Launchers & Python Hardware Prototypes**:
+  - Completely purged legacy Bash launcher scripts (`recorder/linux/*.sh`: `sim-with-recorder.sh`, `acc-with-recorder.sh`, `lmu-with-recorder.sh`, `ac-with-recorder.sh`, `acevo-with-recorder.sh`, `dr2-with-recorder.sh`, `idoracing-launch.sh`, `test-sim-launchers.sh`, and `test-acc-with-recorder.sh`).
+  - Purged deprecated Python hardware prototypes (`tools/moza_leds.py`, `tools/moza_emulator.py`, `tools/pedal_hud.py`) and their tests; all hardware shift lights (`-moza-test`, `-moza-simulate`, `RunMozaBridge`) and the live pedal oscilloscope (`idoracing-hud`) are executed 100% natively in Go.
+  - Native Go binary `recorder/bin/idoracing-launcher` is now the sole universal supervisor for Linux Steam/Proton, alongside `idoracing-launcher.exe` on Windows.
+  - Eliminated all legacy shell pipes and background polling, achieving a 100% pure Golang runtime with zero shell overhead.
+- **Revamped Documentation & Architecture Overview (`README.md` & `recorder/README.md`)**:
+  - Restructured `README.md` around the two-tier architecture: **Zero-Overhead Race Mode** (100% native Go supervisor, recorder, HUD, and Moza LED engine with zero Python/web server on track) and **Post-Session Debrief Mode** (Python + React 19 analytics dashboard and Pep AI engineer).
+  - Documented native Go supervisor compilation, CLI flags, Boxflat coexistence, and simulator launch commands.
 - **HUD Clean Branding & Radio Presentation**:
   - Replaced technical CPU/OS background specs in the HUD footer overlay with clean race-focused branding (`IdoRacing Telemetry  ·  Pep on Pit Wall`).
   - Standardized real-time telemetry badge labels and radio status cues to English (`>>> TRAIL BRAKING ACTIVE <<<`, `[#] Pep: Active`, `[X] Pep: MUTED`).
@@ -23,6 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added build tag fallbacks in `hud_linux.go` (`linux && cgo`) and `hud_other.go` (`(!linux && !windows) || (linux && !cgo)`) ensuring `CGO_ENABLED=0 go test ./...` and headless builds never fail with undefined symbols or missing headers.
 
 ### Added
+- **Automated Multi-Platform Binary Packaging Workflow (`.github/workflows/build-binaries.yml`)**:
+  - Added dedicated GitHub Actions workflow to cross-compile, package, and publish standalone binaries on every push, pull request, manual dispatch, and release tag.
+  - Automatically produces `idoracing-windows-amd64.zip` (containing `idoracing-recorder.exe` and `idoracing-launcher.exe`), `idoracing-linux-amd64.tar.gz` (containing `idoracing-launcher`, `idoracing-hud`, `idoracing-recorder.exe`, launch scripts, and base audio files), and `idoracing-linux-arm64.tar.gz`.
+  - Added cross-platform serial and signal decoupling in `cmd/launcher` (`moza_serial_linux.go`, `moza_serial_other.go`, `signals_posix.go`, `signals_windows.go`) enabling compilation across Windows, Linux (amd64/arm64), and macOS.
+- **Unified Native Go Supervisor for Sim Launchers (`idoracing-launcher`)**:
+  - Added standalone zero-memory-footprint Go supervisor (`recorder/cmd/launcher/` compiled to `recorder/bin/idoracing-launcher`) replacing fragile multi-process Bash supervisor scripts, subshells, and background pipe watchers.
+  - Implemented true Goroutine multithreading with graceful context cancellation (<2ms shutdown time), structured millisecond logging with component tags (`[LAUNCHER]`, `[GAME]`, `[RECORDER]`, `[MOZA]`, `[SPOTTER]`, `[HUD]`), and automated Proton runtime prefix parsing.
+  - Native CDC-ACM serial engine directly in Go (Linux termios 115200 8N1 via POSIX syscalls) receiving telemetry over UDP 10823 and driving Moza steering wheel shift LEDs without requiring Python or external processes.
+  - Standalone binary supervisor replacing all shell scripts, with clean execution directly from Steam launch options.
+  - Integrated into `.github/workflows/ci.yml`, `githooks/pre-commit`, and `githooks/pre-push` with unit tests (`launcher_test.go`) and simulator integration tests.
 - **Live Pedal & Trail Braking HUD with Pep Radio Controls (100% Go Native Overlay & Web View)**:
   - Added standalone 100% Go desktop overlay (`recorder/tools/hud/` compiled to `recorder/bin/idoracing-hud`) rendering real-time scrolling oscilloscope traces for Throttle (neon green) and Brake / Trail Braking (racing red) with 25/50/75/100% grid lines, trail braking decay detection, live gear, speed, RPM, and instantaneous pedal level gauges.
   - Zero Python / Node overhead while racing: pure compiled Go binary using double-buffered X11 rendering (`< 0.1% CPU`, ~15MB RAM) ensuring zero frame drops or stuttering during gameplay.
@@ -33,10 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Native Moza RPM Shift Lights Telemetry Bridge for Linux (`tools/moza_leds.py` & UDP Broadcaster)**:
   - Added lightweight UDP telemetry broadcaster in `recorder/broadcaster.go` emitting 50Hz frames (`rpm`, `max_rpm`, `gear`, `speed_kmh`, `tc`, `abs`) to `127.0.0.1:10823`.
   - Added host daemon `tools/moza_leds.py` using the Moza CDC-ACM serial protocol (115200 baud, Group 0x3F, command `send-rpm-telemetry`) to drive rev LEDs directly on Moza steering wheels (CS V2P, GS, KS, ES, FSR) in Linux under Proton/Wine without requiring Moza Pit House or SimHub, fully compatible alongside Boxflat (`boxflat`) for wheelbase FFB and calibration.
-  - Integrated into `acc-with-recorder.sh` and `sim-with-recorder.sh` to automatically launch in the background alongside the spotter and terminate cleanly on game exit.
+  - Added Moza hardware emulator & protocol validator (`tools/moza_emulator.py`) emulating a Moza wheelbase over a virtual PTY, featuring live ANSI 24-bit TrueColor visualization of the 10 shift LEDs and button states, plus an automated self-validation suite (`--validate`).
+  - Integrated into `idoracing-launcher` to automatically launch in the background alongside the spotter and terminate cleanly on game exit.
   - Includes `--test` CLI mode for immediate LED sweep validation and comprehensive unit tests (`tests/test_moza_leds.py` with mock PTY serial and `recorder/broadcaster_test.go`).
 - **Full GitHub Actions CI Parity in Local Git Hooks (`githooks/pre-commit` & `githooks/pre-push`)**:
-  - Updated `githooks/pre-commit` and added `githooks/pre-push` to execute 100% of `.github/workflows/ci.yml` locally before any commit or push (`ruff check`, `ruff format --check`, `pytest`, `go test ./...`, `linux/test-acc-with-recorder.sh`, `linux/test-sim-launchers.sh`, `GOOS=windows GOARCH=amd64 go build`, `npm run build`, `npm run lint`, and `git fsck`), preventing red CI builds on GitHub.
+  - Updated `githooks/pre-commit` and added `githooks/pre-push` to execute 100% of `.github/workflows/ci.yml` locally before any commit or push (`ruff check`, `ruff format --check`, `pytest`, `go test ./...`, `go build bin/idoracing-launcher`, `GOOS=windows GOARCH=amd64 go build`, `npm run build`, `npm run lint`, and `git fsck`), preventing red CI builds on GitHub.
 - **Interactive Peripheral Selector & Telemetry-to-Peripheral Diagnostic Skill (`simracing-peripherals`)**:
   - Each assistant message in `AIDebriefDrawer.tsx` and `EngineerView.tsx` now includes an interactive 3-option peripheral selector (`🎮 Gamepad / Mando`, `🛞 Volante / Cockpit`, `⌨️ Teclado`) styled like the suggested query chips.
   - Selecting a peripheral (or mentioning it in chat) persists the choice, adapts Pep's drill vocabulary, and guarantees via `_ensure_peripheral_section` in `api/server.py` that the in-game controller configuration block (Brake/Steer Gamma, Speed Sensitivity, Steer Filter/Speed, FFB/Load-Cell or Keyboard assist settings) is always included before Pep's signature.
