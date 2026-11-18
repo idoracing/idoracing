@@ -218,6 +218,9 @@ Download ready-to-use standalone binaries from the **[Latest Release](https://gi
   idoracing-recorder.exe -sim dr2 -exit-with "dirtrally2.exe,WRC.exe"
   ```
 
+- **Windows Configuration (`idoracing.json`)**:
+  Preferences (toggles, spotter volume, mute hotkey) are read automatically from `idoracing.json` in the same directory as the `.exe`, or globally from `%APPDATA%\IdoRacing\config.json`.
+
 ---
 
 ## 🏗️ Architecture

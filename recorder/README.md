@@ -41,7 +41,7 @@ The recorder and its companion native supervisor (`idoracing-launcher`) include 
 - **Volume Control**: Configurable in `data/spotter_config.json` (`"volume": 100`) or via the `IDORACING_SPOTTER_VOLUME` environment variable.
 
 ### ⚙️ Launcher & Spotter Configuration (`idoracing.json` / `data/spotter_config.json`)
-The unified launcher automatically locates your configuration file hierarchically (CLI `-config`, `IDORACING_CONFIG` env, next to binary, user config directory `~/.config/idoracing/config.json`, or `data/idoracing.json` / `data/spotter_config.json`):
+The unified launcher automatically locates your configuration file hierarchically (CLI `-config`, `IDORACING_CONFIG` env, next to binary, user config directory, or `data/idoracing.json` / `data/spotter_config.json`):
 
 ```json
 {
@@ -59,6 +59,17 @@ The unified launcher automatically locates your configuration file hierarchicall
 - **`hud_overlay`**: Enable or disable the floating pedal oscilloscope HUD overlay.
 - **`moza_shift_lights`**: Enable or disable the high-speed Moza rev LED serial bridge.
 - **`recorder`**: Enable or disable the background 50Hz telemetry recorder.
+
+#### 📁 Configuration File Locations by Platform
+
+| Platform | Primary Path | Portable / Alternative Path |
+| :--- | :--- | :--- |
+| 🪟 **Windows** | `%APPDATA%\IdoRacing\config.json`<br>`(C:\Users\<User>\AppData\Roaming\IdoRacing\config.json)` | `idoracing.json` in the same directory as `idoracing-launcher.exe` |
+| 🐧 **Linux** | `~/.config/idoracing/config.json`<br>*(Standard XDG config directory)* | `data/idoracing.json` (repo) or `idoracing.json` next to binary |
+| 🌐 **Custom** | `-config /path/to/custom.json` CLI flag | `IDORACING_CONFIG=/path/to/custom.json` environment variable |
+
+> [!TIP]
+> Run `idoracing-launcher -status` anytime to see the exact configuration file path being loaded.
 
 ### 🕹️ Instant Hardware & Subsystem Status Diagnostic
 
