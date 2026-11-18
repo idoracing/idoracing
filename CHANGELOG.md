@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-18
+
+### Added
+- **Unified Launcher Configuration File & Subsystem Override Flags (`idoracing-launcher`)**:
+  - Implemented hierarchical configuration file resolution (`FindConfigFile`) checking `-config <path>`, `IDORACING_CONFIG` env, binary directory, XDG/AppData user config directory (`~/.config/idoracing/config.json`), and repo data (`idoracing.json` / `spotter_config.json`).
+  - Added dedicated subsystem toggles: `pep_spotter`, `hud_overlay`, `moza_shift_lights`, and `recorder` with 100% backward-compatible aliases (`enabled`, `hud_enabled`, `moza_leds`, `recorder_enabled`) across Go launcher, Python backend, and React frontend.
+  - Added per-session CLI override flags to `idoracing-launcher`: `-hud` / `-no-hud`, `-moza` / `-no-moza`, `-spotter` / `-no-spotter` (or `-pep` / `-no-pep`), and `-recorder` / `-no-recorder`.
+  - Added detailed subsystem and hardware status diagnostic report in `idoracing-launcher -status`, displaying active config path, log path, enabled/disabled state of every subsystem, Moza serial port detection, and binary presence.
+
 ### Fixed
 - **Moza Steering Wheel Shift LEDs & Telemetry Protocol**:
   - Corrected steering wheel target addressing and telemetry handshake in `tools/moza_leds.py`: frames are now sent to standard Moza wheel device IDs `0x17` (ID 23) and `0x15` (ID 21) with exact Moza checksum (`13 + sum(frame)`).

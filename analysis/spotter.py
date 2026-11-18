@@ -28,8 +28,19 @@ if TYPE_CHECKING:
 logger = logging.getLogger("pep_spotter")
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+IDORACING_CONFIG_FILE = ROOT_DIR / "data" / "idoracing.json"
 SPOTTER_CONFIG_FILE = ROOT_DIR / "data" / "spotter_config.json"
 VOICES_DIR = Path(os.environ.get("IDORACING_VOICES_DIR") or (ROOT_DIR / "recorder" / "voices"))
+
+
+def get_active_config_file() -> Path:
+    """Return active configuration file: idoracing.json if present, else spotter_config.json."""
+    if IDORACING_CONFIG_FILE.exists():
+        return IDORACING_CONFIG_FILE
+    if SPOTTER_CONFIG_FILE.exists():
+        return SPOTTER_CONFIG_FILE
+    return IDORACING_CONFIG_FILE
+
 
 TRACK_SLUG_MAP: dict[str, str] = {
     "valencia": "valencia",
@@ -59,49 +70,115 @@ def get_track_slug(track_name: str | None) -> str:
 
 
 def load_spotter_config() -> dict[str, Any]:
-    """Load spotter configuration from data/spotter_config.json, returning default if absent."""
-    if SPOTTER_CONFIG_FILE.exists():
+    """Load configuration from data/idoracing.json or data/spotter_config.json, returning default if absent."""
+    cfg_file = get_active_config_file()
+    if cfg_file.exists():
         try:
-            with open(SPOTTER_CONFIG_FILE, encoding="utf-8") as f:
+            with open(cfg_file, encoding="utf-8") as f:
                 data = json.load(f)
+                pep_spotter = bool(data.get("pep_spotter", data.get("enabled", True)))
+                hud_overlay = bool(data.get("hud_overlay", data.get("hud_enabled", True)))
+                moza_shift_lights = bool(data.get("moza_shift_lights", data.get("moza_leds", True)))
+                recorder = bool(data.get("recorder", data.get("recorder_enabled", True)))
                 return {
-                    "enabled": bool(data.get("enabled", True)),
+                    "pep_spotter": pep_spotter,
+                    "hud_overlay": hud_overlay,
+                    "moza_shift_lights": moza_shift_lights,
+                    "recorder": recorder,
+                    "enabled": pep_spotter,
+                    "hud_enabled": hud_overlay,
+                    "moza_leds": moza_shift_lights,
+                    "recorder_enabled": recorder,
                     "language": "en" if str(data.get("language", "es")).lower().startswith("en") else "es",
                     "volume": max(0, min(100, int(data.get("volume", 85)))),
                     "toggle_key": str(data.get("toggle_key", "F9")).upper().strip() or "F9",
                     "toggle_vk_code": int(data.get("toggle_vk_code", 120)),
-                    "hud_enabled": bool(data.get("hud_enabled", True)),
-                    "moza_leds": bool(data.get("moza_leds", True)),
                 }
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to parse spotter config %s: %s", SPOTTER_CONFIG_FILE, exc)
+            logger.warning("Failed to parse config %s: %s", cfg_file, exc)
 
     default_cfg = {
+        "pep_spotter": True,
+        "hud_overlay": True,
+        "moza_shift_lights": True,
+        "recorder": True,
         "enabled": True,
+        "hud_enabled": True,
+        "moza_leds": True,
+        "recorder_enabled": True,
         "language": "es",
         "volume": 85,
         "toggle_key": "F9",
         "toggle_vk_code": 120,
-        "hud_enabled": True,
-        "moza_leds": True,
     }
     save_spotter_config(default_cfg)
     return default_cfg
 
 
 def save_spotter_config(cfg: dict[str, Any]) -> dict[str, Any]:
-    """Persist spotter configuration to data/spotter_config.json."""
-    SPOTTER_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    """Persist configuration to active config file (idoracing.json or spotter_config.json)."""
+    cfg_file = get_active_config_file()
+    cfg_file.parent.mkdir(parents=True, exist_ok=True)
+
+    if "pep_spotter" in cfg and cfg["pep_spotter"] is not None and "enabled" not in cfg:
+        pep_spotter = bool(cfg["pep_spotter"])
+    elif "enabled" in cfg and cfg["enabled"] is not None and "pep_spotter" not in cfg:
+        pep_spotter = bool(cfg["enabled"])
+    elif "pep_spotter" in cfg and cfg["pep_spotter"] is not None:
+        pep_spotter = bool(cfg["pep_spotter"])
+    elif "enabled" in cfg and cfg["enabled"] is not None:
+        pep_spotter = bool(cfg["enabled"])
+    else:
+        pep_spotter = True
+
+    if "hud_overlay" in cfg and cfg["hud_overlay"] is not None and "hud_enabled" not in cfg:
+        hud_overlay = bool(cfg["hud_overlay"])
+    elif "hud_enabled" in cfg and cfg["hud_enabled"] is not None and "hud_overlay" not in cfg:
+        hud_overlay = bool(cfg["hud_enabled"])
+    elif "hud_overlay" in cfg and cfg["hud_overlay"] is not None:
+        hud_overlay = bool(cfg["hud_overlay"])
+    elif "hud_enabled" in cfg and cfg["hud_enabled"] is not None:
+        hud_overlay = bool(cfg["hud_enabled"])
+    else:
+        hud_overlay = True
+
+    if "moza_shift_lights" in cfg and cfg["moza_shift_lights"] is not None and "moza_leds" not in cfg:
+        moza_shift_lights = bool(cfg["moza_shift_lights"])
+    elif "moza_leds" in cfg and cfg["moza_leds"] is not None and "moza_shift_lights" not in cfg:
+        moza_shift_lights = bool(cfg["moza_leds"])
+    elif "moza_shift_lights" in cfg and cfg["moza_shift_lights"] is not None:
+        moza_shift_lights = bool(cfg["moza_shift_lights"])
+    elif "moza_leds" in cfg and cfg["moza_leds"] is not None:
+        moza_shift_lights = bool(cfg["moza_leds"])
+    else:
+        moza_shift_lights = True
+
+    if "recorder" in cfg and cfg["recorder"] is not None and "recorder_enabled" not in cfg:
+        recorder = bool(cfg["recorder"])
+    elif "recorder_enabled" in cfg and cfg["recorder_enabled"] is not None and "recorder" not in cfg:
+        recorder = bool(cfg["recorder_enabled"])
+    elif "recorder" in cfg and cfg["recorder"] is not None:
+        recorder = bool(cfg["recorder"])
+    elif "recorder_enabled" in cfg and cfg["recorder_enabled"] is not None:
+        recorder = bool(cfg["recorder_enabled"])
+    else:
+        recorder = True
+
     clean_cfg = {
-        "enabled": bool(cfg.get("enabled", True)),
+        "pep_spotter": pep_spotter,
+        "hud_overlay": hud_overlay,
+        "moza_shift_lights": moza_shift_lights,
+        "recorder": recorder,
+        "enabled": pep_spotter,
+        "hud_enabled": hud_overlay,
+        "moza_leds": moza_shift_lights,
+        "recorder_enabled": recorder,
         "language": "en" if str(cfg.get("language", "es")).lower().startswith("en") else "es",
         "volume": max(0, min(100, int(cfg.get("volume", 85)))),
         "toggle_key": str(cfg.get("toggle_key", "F9")).upper().strip() or "F9",
         "toggle_vk_code": int(cfg.get("toggle_vk_code", 120)),
-        "hud_enabled": bool(cfg.get("hud_enabled", True)),
-        "moza_leds": bool(cfg.get("moza_leds", True)),
     }
-    with open(SPOTTER_CONFIG_FILE, "w", encoding="utf-8") as f:
+    with open(cfg_file, "w", encoding="utf-8") as f:
         json.dump(clean_cfg, f, indent=2)
     return clean_cfg
 

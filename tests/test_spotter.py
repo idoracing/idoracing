@@ -59,6 +59,53 @@ def test_spotter_config_api(client):
     )
 
 
+def test_spotter_config_modern_aliases(client):
+    # Update using modern subsystem toggles
+    update_payload = {
+        "pep_spotter": False,
+        "hud_overlay": False,
+        "moza_shift_lights": False,
+        "recorder": False,
+        "language": "en",
+        "volume": 60,
+    }
+    res_put = client.put("/api/spotter/config", json=update_payload)
+    assert res_put.status_code == 200
+    put_data = res_put.json()
+    assert put_data["pep_spotter"] is False
+    assert put_data["enabled"] is False
+    assert put_data["hud_overlay"] is False
+    assert put_data["hud_enabled"] is False
+    assert put_data["moza_shift_lights"] is False
+    assert put_data["moza_leds"] is False
+    assert put_data["recorder"] is False
+    assert put_data["recorder_enabled"] is False
+
+    # Verify via GET
+    res_get = client.get("/api/spotter/config")
+    assert res_get.status_code == 200
+    get_data = res_get.json()
+    assert get_data["pep_spotter"] is False
+    assert get_data["enabled"] is False
+    assert get_data["hud_overlay"] is False
+    assert get_data["recorder"] is False
+
+    # Restore default values
+    client.put(
+        "/api/spotter/config",
+        json={
+            "pep_spotter": True,
+            "hud_overlay": True,
+            "moza_shift_lights": True,
+            "recorder": True,
+            "language": "es",
+            "volume": 85,
+            "toggle_key": "F9",
+            "toggle_vk_code": 120,
+        },
+    )
+
+
 def test_spotter_audio_endpoint(client):
     res_on = client.get("/api/spotter/audio/radio_on?lang=es")
     assert res_on.status_code == 200

@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 import certifi
 import numpy as np
@@ -37,7 +37,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from starlette.requests import Request
 from starlette.responses import FileResponse, Response
 
@@ -378,13 +378,58 @@ class SettingsDTO(BaseModel):
 
 
 class SpotterConfigDTO(BaseModel):
-    enabled: bool = True
+    pep_spotter: bool | None = None
+    hud_overlay: bool | None = None
+    moza_shift_lights: bool | None = None
+    recorder: bool | None = None
+    enabled: bool | None = None
+    hud_enabled: bool | None = None
+    moza_leds: bool | None = None
+    recorder_enabled: bool | None = None
     language: str = "es"
     volume: int = 85
     toggle_key: str = "F9"
     toggle_vk_code: int = 120
-    hud_enabled: bool = True
-    moza_leds: bool = True
+
+    @model_validator(mode="after")
+    def sync_aliases(self) -> Self:
+        # Resolve pep_spotter & enabled
+        if self.pep_spotter is not None:
+            self.enabled = self.pep_spotter
+        elif self.enabled is not None:
+            self.pep_spotter = self.enabled
+        else:
+            self.pep_spotter = True
+            self.enabled = True
+
+        # Resolve hud_overlay & hud_enabled
+        if self.hud_overlay is not None:
+            self.hud_enabled = self.hud_overlay
+        elif self.hud_enabled is not None:
+            self.hud_overlay = self.hud_enabled
+        else:
+            self.hud_overlay = True
+            self.hud_enabled = True
+
+        # Resolve moza_shift_lights & moza_leds
+        if self.moza_shift_lights is not None:
+            self.moza_leds = self.moza_shift_lights
+        elif self.moza_leds is not None:
+            self.moza_shift_lights = self.moza_leds
+        else:
+            self.moza_shift_lights = True
+            self.moza_leds = True
+
+        # Resolve recorder & recorder_enabled
+        if self.recorder is not None:
+            self.recorder_enabled = self.recorder
+        elif self.recorder_enabled is not None:
+            self.recorder = self.recorder_enabled
+        else:
+            self.recorder = True
+            self.recorder_enabled = True
+
+        return self
 
 
 class CornerDTO(BaseModel):

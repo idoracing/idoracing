@@ -128,39 +128,51 @@ func loadSpotterConfigKey() (keyName string, vkCode uintptr, enabled bool) {
 	vkCode = 120
 	enabled = true
 
-	candidates := []string{
-		filepath.Join("data", "spotter_config.json"),
-		filepath.Join("..", "data", "spotter_config.json"),
-		filepath.Join("..", "..", "data", "spotter_config.json"),
+	fileNames := []string{"idoracing.json", "config.json", "spotter_config.json"}
+	dirs := []string{
+		"data",
+		filepath.Join("..", "data"),
+		filepath.Join("..", "..", "data"),
 	}
 	if exe, err := os.Executable(); err == nil {
 		exeDir := filepath.Dir(exe)
-		candidates = append(candidates,
-			filepath.Join(exeDir, "data", "spotter_config.json"),
-			filepath.Join(exeDir, "..", "data", "spotter_config.json"),
-			filepath.Join(exeDir, "..", "..", "data", "spotter_config.json"),
+		dirs = append(dirs,
+			exeDir,
+			filepath.Join(exeDir, "data"),
+			filepath.Join(exeDir, ".."),
+			filepath.Join(exeDir, "..", "data"),
+			filepath.Join(exeDir, "..", ".."),
+			filepath.Join(exeDir, "..", "..", "data"),
 		)
 	}
 
-	for _, p := range candidates {
-		data, err := os.ReadFile(p)
-		if err == nil {
-			var cfg struct {
-				Enabled      bool   `json:"enabled"`
-				ToggleKey    string `json:"toggle_key"`
-				ToggleVKCode int    `json:"toggle_vk_code"`
-			}
-			if err := json.Unmarshal(data, &cfg); err == nil {
-				if cfg.ToggleKey != "" {
-					keyName = cfg.ToggleKey
+	for _, dir := range dirs {
+		for _, name := range fileNames {
+			p := filepath.Join(dir, name)
+			data, err := os.ReadFile(p)
+			if err == nil {
+				var cfg struct {
+					PepSpotter   *bool  `json:"pep_spotter"`
+					Enabled      *bool  `json:"enabled"`
+					ToggleKey    string `json:"toggle_key"`
+					ToggleVKCode int    `json:"toggle_vk_code"`
 				}
-				if cfg.ToggleVKCode > 0 {
-					vkCode = uintptr(cfg.ToggleVKCode)
-				} else {
-					vkCode = parseVKCode(keyName)
+				if err := json.Unmarshal(data, &cfg); err == nil {
+					if cfg.ToggleKey != "" {
+						keyName = cfg.ToggleKey
+					}
+					if cfg.ToggleVKCode > 0 {
+						vkCode = uintptr(cfg.ToggleVKCode)
+					} else {
+						vkCode = parseVKCode(keyName)
+					}
+					if cfg.PepSpotter != nil {
+						enabled = *cfg.PepSpotter
+					} else if cfg.Enabled != nil {
+						enabled = *cfg.Enabled
+					}
+					return keyName, vkCode, enabled
 				}
-				enabled = cfg.Enabled
-				return keyName, vkCode, enabled
 			}
 		}
 	}

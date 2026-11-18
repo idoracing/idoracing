@@ -40,14 +40,55 @@ The recorder and its companion native supervisor (`idoracing-launcher`) include 
 - **In-Game Toggle Hotkey (`F9`)**: Press **`F9`** anytime while driving to mute (*"Copiado. Pep se va, no te molesto"*) or unmute (*"Idò, Pep al habla. Te leo en el muro"*). Configurable in `data/spotter_config.json`.
 - **Volume Control**: Configurable in `data/spotter_config.json` (`"volume": 100`) or via the `IDORACING_SPOTTER_VOLUME` environment variable.
 
-### ⚙️ Spotter Configuration (`data/spotter_config.json`)
+### ⚙️ Launcher & Spotter Configuration (`idoracing.json` / `data/spotter_config.json`)
+The unified launcher automatically locates your configuration file hierarchically (CLI `-config`, `IDORACING_CONFIG` env, next to binary, user config directory `~/.config/idoracing/config.json`, or `data/idoracing.json` / `data/spotter_config.json`):
+
 ```json
 {
-  "enabled": true,
+  "pep_spotter": true,
+  "hud_overlay": true,
+  "moza_shift_lights": true,
+  "recorder": true,
   "language": "es",
-  "volume": 100,
+  "volume": 85,
   "toggle_key": "F9"
 }
+```
+
+- **`pep_spotter`**: Enable or disable Pep live radio spotter in your ears.
+- **`hud_overlay`**: Enable or disable the floating pedal oscilloscope HUD overlay.
+- **`moza_shift_lights`**: Enable or disable the high-speed Moza rev LED serial bridge.
+- **`recorder`**: Enable or disable the background 50Hz telemetry recorder.
+
+### 🕹️ Instant Hardware & Subsystem Status Diagnostic
+
+Inspect your configuration, detected hardware ports, and binary dependencies anytime:
+
+```bash
+/path/to/recorder/bin/idoracing-launcher -status
+```
+
+Output:
+```text
+INFO  [LAUNCHER] Subsystem Status:
+INFO  [LAUNCHER]   • Telemetry Recorder: ENABLED
+INFO  [LAUNCHER]   • HUD Pedal Overlay:  ENABLED
+INFO  [LAUNCHER]   • Pep Live Spotter:   ENABLED (Lang: es, Vol: 85%)
+INFO  [LAUNCHER]   • Moza Shift Lights:  ENABLED
+INFO  [LAUNCHER] Hardware: Moza CDC-ACM detected at /dev/ttyACM0
+```
+
+### ⚡ Subsystem CLI Override Flags
+
+You can override any subsystem per-session directly in Steam launch options without modifying your config file:
+- `-no-hud`: Disable HUD pedal overlay.
+- `-no-moza`: Disable Moza shift lights bridge.
+- `-no-spotter` (or `-no-pep`): Disable Pep audio spotter.
+- `-no-recorder`: Disable Wine telemetry recording.
+
+Example Steam launch option disabling HUD and Moza while keeping Pep and Recorder:
+```text
+gamemoderun /path/to/recorder/bin/idoracing-launcher -no-hud -no-moza %command%
 ```
 
 ## 📦 Download Standalone Binaries

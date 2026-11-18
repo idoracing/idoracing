@@ -102,8 +102,10 @@ func (tb *TraceBuffer) Snapshot() []Sample {
 	return out
 }
 
-// SpotterConfig matches data/spotter_config.json.
+// SpotterConfig matches idoracing.json and data/spotter_config.json.
 type SpotterConfig struct {
+	PepSpotter   bool   `json:"pep_spotter,omitempty"`
+	HUDOverlay   bool   `json:"hud_overlay,omitempty"`
 	Enabled      bool   `json:"enabled"`
 	Language     string `json:"language"`
 	Volume       int    `json:"volume"`
@@ -121,7 +123,7 @@ type SpotterManager struct {
 	lastLoaded time.Time
 }
 
-// FindSpotterConfigFile locates spotter_config.json searching standard repo candidates.
+// FindSpotterConfigFile locates idoracing.json or spotter_config.json searching standard repo candidates.
 func FindSpotterConfigFile(overridePath string) string {
 	if overridePath != "" {
 		if _, err := os.Stat(overridePath); err == nil {
@@ -129,28 +131,40 @@ func FindSpotterConfigFile(overridePath string) string {
 		}
 	}
 
+	if envPath := os.Getenv("IDORACING_CONFIG"); envPath != "" {
+		if _, err := os.Stat(envPath); err == nil {
+			return envPath
+		}
+	}
+
+	fileNames := []string{"idoracing.json", "config.json", "spotter_config.json"}
 	candidates := []string{
-		filepath.Join("data", "spotter_config.json"),
-		filepath.Join("..", "data", "spotter_config.json"),
-		filepath.Join("..", "..", "data", "spotter_config.json"),
+		"data",
+		filepath.Join("..", "data"),
+		filepath.Join("..", "..", "data"),
 	}
 
 	if exe, err := os.Executable(); err == nil {
 		exeDir := filepath.Dir(exe)
 		candidates = append(candidates,
-			filepath.Join(exeDir, "data", "spotter_config.json"),
-			filepath.Join(exeDir, "..", "data", "spotter_config.json"),
-			filepath.Join(exeDir, "..", "..", "data", "spotter_config.json"),
+			exeDir,
+			filepath.Join(exeDir, "data"),
+			filepath.Join(exeDir, ".."),
+			filepath.Join(exeDir, "..", "data"),
+			filepath.Join(exeDir, "..", ".."),
+			filepath.Join(exeDir, "..", "..", "data"),
 		)
 	}
 
-	for _, cand := range candidates {
-		if _, err := os.Stat(cand); err == nil {
-			abs, err := filepath.Abs(cand)
-			if err == nil {
-				return abs
+	for _, dir := range candidates {
+		for _, name := range fileNames {
+			cand := filepath.Join(dir, name)
+			if _, err := os.Stat(cand); err == nil {
+				if abs, err := filepath.Abs(cand); err == nil {
+					return abs
+				}
+				return cand
 			}
-			return cand
 		}
 	}
 

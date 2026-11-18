@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"os"
 	"path/filepath"
 	"strings"
@@ -207,12 +208,17 @@ func TestConfigManagerReload(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfgPath := filepath.Join(tmpDir, "spotter_config.json")
 
-	initial := SpotterConfig{
-		Enabled:    true,
-		Language:   "en",
-		Volume:     75,
-		HUDEnabled: true,
-		MozaLEDs:   true,
+	initial := LauncherConfig{
+		PepSpotter:      true,
+		HUDOverlay:      true,
+		MozaShiftLights: true,
+		Recorder:        true,
+		Enabled:         true,
+		HUDEnabled:      true,
+		MozaLEDs:        true,
+		RecorderEnabled: true,
+		Language:        "en",
+		Volume:          75,
 	}
 	data, _ := json.Marshal(initial)
 	_ = os.WriteFile(cfgPath, data, 0644)
@@ -224,19 +230,166 @@ func TestConfigManagerReload(t *testing.T) {
 	}
 
 	// Update on disk
-	updated := SpotterConfig{
-		Enabled:    false,
-		Language:   "es",
-		Volume:     50,
-		HUDEnabled: false,
-		MozaLEDs:   false,
+	updated := LauncherConfig{
+		PepSpotter:      false,
+		HUDOverlay:      false,
+		MozaShiftLights: false,
+		Recorder:        false,
+		Enabled:         false,
+		HUDEnabled:      false,
+		MozaLEDs:        false,
+		RecorderEnabled: false,
+		Language:        "es",
+		Volume:          50,
 	}
 	data2, _ := json.Marshal(updated)
 	_ = os.WriteFile(cfgPath, data2, 0644)
 
 	cfg2 := cm.Reload()
-	if cfg2.Enabled || cfg2.Language != "es" || cfg2.Volume != 50 || cfg2.HUDEnabled || cfg2.MozaLEDs {
+	if cfg2.Enabled || cfg2.Language != "es" || cfg2.Volume != 50 || cfg2.HUDEnabled || cfg2.MozaLEDs || cfg2.Recorder {
 		t.Fatalf("unexpected reloaded config: %+v", cfg2)
+	}
+}
+
+func TestLauncherConfigJSONAliases(t *testing.T) {
+	// 1. Modern keys
+	modernJSON := `{
+		"pep_spotter": false,
+		"hud_overlay": false,
+		"moza_shift_lights": false,
+		"recorder": false,
+		"language": "en",
+		"volume": 70
+	}`
+	var cfg1 LauncherConfig
+	if err := json.Unmarshal([]byte(modernJSON), &cfg1); err != nil {
+		t.Fatalf("failed to unmarshal modern json: %v", err)
+	}
+	if cfg1.PepSpotter || cfg1.Enabled || cfg1.HUDOverlay || cfg1.HUDEnabled ||
+		cfg1.MozaShiftLights || cfg1.MozaLEDs || cfg1.Recorder || cfg1.RecorderEnabled {
+		t.Errorf("expected all subsystems disabled in modern json, got %+v", cfg1)
+	}
+	if cfg1.Language != "en" || cfg1.Volume != 70 {
+		t.Errorf("expected lang=en vol=70, got lang=%s vol=%d", cfg1.Language, cfg1.Volume)
+	}
+
+	// 2. Legacy keys
+	legacyJSON := `{
+		"enabled": false,
+		"hud_enabled": false,
+		"moza_leds": false,
+		"recorder_enabled": false
+	}`
+	var cfg2 LauncherConfig
+	if err := json.Unmarshal([]byte(legacyJSON), &cfg2); err != nil {
+		t.Fatalf("failed to unmarshal legacy json: %v", err)
+	}
+	if cfg2.PepSpotter || cfg2.Enabled || cfg2.HUDOverlay || cfg2.HUDEnabled ||
+		cfg2.MozaShiftLights || cfg2.MozaLEDs || cfg2.Recorder || cfg2.RecorderEnabled {
+		t.Errorf("expected all subsystems disabled in legacy json, got %+v", cfg2)
+	}
+
+	// 3. Serialization exports both sets of keys
+	outBytes, err := json.Marshal(cfg1)
+	if err != nil {
+		t.Fatalf("failed to marshal LauncherConfig: %v", err)
+	}
+	outStr := string(outBytes)
+	for _, key := range []string{"pep_spotter", "hud_overlay", "moza_shift_lights", "recorder", "enabled", "hud_enabled", "moza_leds", "recorder_enabled"} {
+		if !strings.Contains(outStr, key) {
+			t.Errorf("marshaled json missing key %q: %s", key, outStr)
+		}
+	}
+}
+
+func TestFindConfigFileHierarchy(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// 1. Explicit path
+	custom := filepath.Join(tmpDir, "custom.json")
+	if p := FindConfigFile(custom, tmpDir); p != custom {
+		t.Errorf("expected custom path %s, got %s", custom, p)
+	}
+
+	// 2. IDORACING_CONFIG env
+	envFile := filepath.Join(tmpDir, "env_config.json")
+	_ = os.WriteFile(envFile, []byte("{}"), 0644)
+	origEnv := os.Getenv("IDORACING_CONFIG")
+	_ = os.Setenv("IDORACING_CONFIG", envFile)
+	defer os.Setenv("IDORACING_CONFIG", origEnv)
+
+	if p := FindConfigFile("", tmpDir); p != envFile {
+		t.Errorf("expected env path %s, got %s", envFile, p)
+	}
+	_ = os.Unsetenv("IDORACING_CONFIG")
+
+	// 3. In repo data directory
+	repoDir := filepath.Join(tmpDir, "repo")
+	repoData := filepath.Join(repoDir, "data")
+	_ = os.MkdirAll(repoData, 0755)
+	spotterPath := filepath.Join(repoData, "spotter_config.json")
+	_ = os.WriteFile(spotterPath, []byte("{}"), 0644)
+
+	if p := FindConfigFile("", repoDir); filepath.Base(p) != "spotter_config.json" {
+		t.Errorf("expected spotter_config.json from repo data, got %s", p)
+	}
+
+	// If idoracing.json also exists in repo data, it takes precedence
+	idoracingPath := filepath.Join(repoData, "idoracing.json")
+	_ = os.WriteFile(idoracingPath, []byte("{}"), 0644)
+	if p := FindConfigFile("", repoDir); filepath.Base(p) != "idoracing.json" {
+		t.Errorf("expected idoracing.json to take precedence, got %s", p)
+	}
+}
+
+func TestApplyFlagOverridesToConfig(t *testing.T) {
+	// Base configuration with all enabled
+	cfg := DefaultConfig()
+
+	fset := flag.NewFlagSet("test", flag.ContinueOnError)
+	_ = fset.Bool("hud", true, "")
+	_ = fset.Bool("no-hud", false, "")
+	_ = fset.Bool("moza", true, "")
+	_ = fset.Bool("no-moza", false, "")
+	_ = fset.Bool("spotter", true, "")
+	_ = fset.Bool("no-spotter", false, "")
+	_ = fset.Bool("pep", true, "")
+	_ = fset.Bool("no-pep", false, "")
+	_ = fset.Bool("recorder", true, "")
+	_ = fset.Bool("no-recorder", false, "")
+
+	// Parse disabling flags
+	args := []string{"-no-hud", "-no-moza", "-no-pep", "-no-recorder"}
+	if err := fset.Parse(args); err != nil {
+		t.Fatalf("failed to parse args: %v", err)
+	}
+
+	applyFlagOverridesToConfig(&cfg, fset)
+
+	if cfg.HUDOverlay || cfg.HUDEnabled {
+		t.Errorf("HUD should be disabled by -no-hud")
+	}
+	if cfg.MozaShiftLights || cfg.MozaLEDs {
+		t.Errorf("Moza should be disabled by -no-moza")
+	}
+	if cfg.PepSpotter || cfg.Enabled {
+		t.Errorf("Spotter should be disabled by -no-pep")
+	}
+	if cfg.Recorder || cfg.RecorderEnabled {
+		t.Errorf("Recorder should be disabled by -no-recorder")
+	}
+
+	// Re-enable via explicit flag=true
+	fset2 := flag.NewFlagSet("test2", flag.ContinueOnError)
+	_ = fset2.Bool("hud", true, "")
+	_ = fset2.Bool("moza", true, "")
+	_ = fset2.Bool("spotter", true, "")
+	_ = fset2.Bool("recorder", true, "")
+	_ = fset2.Parse([]string{"-hud=true", "-moza=true", "-spotter=true", "-recorder=true"})
+
+	applyFlagOverridesToConfig(&cfg, fset2)
+	if !cfg.HUDOverlay || !cfg.MozaShiftLights || !cfg.PepSpotter || !cfg.Recorder {
+		t.Errorf("All subsystems should be re-enabled, got %+v", cfg)
 	}
 }
 

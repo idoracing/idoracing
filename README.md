@@ -182,7 +182,7 @@ Download ready-to-use standalone binaries from the **[Latest Release](https://gi
 4. Start the game. The launcher automatically:
    - Identifies the simulator (`acc`, `lmu`, `acevo`, `dr2`, `acrally`, `ac`).
    - Hooks `idoracing-recorder.exe` into the Proton environment.
-   - Launches the native pedal HUD overlay (if enabled in `data/spotter_config.json`).
+   - Launches the native pedal HUD overlay (if enabled in `idoracing.json` / `spotter_config.json`).
    - Connects to your Moza wheelbase over serial CDC-ACM.
    - Starts the Pep spotter audio engine.
    - Cleans up every subsystem cleanly when the game exits.
@@ -226,7 +226,7 @@ idoracing/
 │   │   ├── moza.go         # Pure Go CDC-ACM serial engine (termios 115200 8N1)
 │   │   ├── spotter.go      # Native audio event listener (pw-play / paplay)
 │   │   ├── logger.go       # Millisecond structured logger with component tags
-│   │   └── config.go       # Dynamic spotter_config.json watcher
+│   │   └── config.go       # Unified idoracing.json & spotter_config.json watcher
 │   ├── tools/hud/          # Standalone 100% Go X11 Pedal & Trail Braking HUD overlay
 │   ├── broadcaster.go      # 50Hz UDP telemetry distributor (Moza: 10823, HUD: 10824)
 │   ├── linux/              # Steam Proton shell scripts & automated test suite

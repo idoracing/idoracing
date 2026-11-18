@@ -453,6 +453,11 @@ export interface SpotterConfigDTO {
   toggle_vk_code?: number;
   hud_enabled?: boolean;
   moza_leds?: boolean;
+  pep_spotter?: boolean;
+  hud_overlay?: boolean;
+  moza_shift_lights?: boolean;
+  recorder?: boolean;
+  recorder_enabled?: boolean;
 }
 
 
