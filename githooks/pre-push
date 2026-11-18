@@ -3,22 +3,30 @@
 # Mirrors .github/workflows/ci.yml 1:1 (test + frontend + recorder + git object integrity).
 set -euo pipefail
 
+REMOTE_NAME="${1:-origin}"
+if [ "$REMOTE_NAME" = "pages" ] || [ "${IDORACING_PAGES_SYNC:-0}" = "1" ]; then
+	exit 0
+fi
+
+# Capture push ref details from stdin
+PUSH_REFS=$(cat)
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
-echo "pre-push: [1/5] Checking Git repository object integrity..."
+echo "pre-push: [1/6] Checking Git repository object integrity..."
 git -C "$REPO_ROOT" fsck --no-dangling >/dev/null || {
 	echo "pre-push: ERROR: git fsck detected corrupted objects! Aborting push." >&2
 	exit 1
 }
 
-echo "pre-push: [2/5] Running Frontend CI checks (npm run build + npm run lint)..."
+echo "pre-push: [2/6] Running Frontend CI checks (npm run build + npm run lint)..."
 (
 	cd "$REPO_ROOT/frontend"
 	npm run build
 	npm run lint
 )
 
-echo "pre-push: [3/5] Running Python CI checks (ruff check + ruff format --check + pytest)..."
+echo "pre-push: [3/6] Running Python CI checks (ruff check + ruff format --check + pytest)..."
 RUFF="$REPO_ROOT/.venv/bin/ruff"
 [ -x "$RUFF" ] || RUFF="ruff"
 PYTEST="$REPO_ROOT/.venv/bin/pytest"
@@ -28,7 +36,7 @@ PYTEST="$REPO_ROOT/.venv/bin/pytest"
 "$RUFF" format --check "$REPO_ROOT"
 PYTHONPATH="$REPO_ROOT" "$PYTEST" "$REPO_ROOT/tests" -q
 
-echo "pre-push: [4/5] Running Recorder CI checks (go test + launcher build & scripts + Windows cross-build)..."
+echo "pre-push: [4/6] Running Recorder CI checks (go test + launcher build & scripts + Windows cross-build)..."
 (
 	cd "$REPO_ROOT/recorder"
 	go test ./...
@@ -37,5 +45,33 @@ echo "pre-push: [4/5] Running Recorder CI checks (go test + launcher build & scr
 	cp -f idoracing-recorder.exe linux/idoracing-recorder.exe
 )
 
-echo "pre-push: [5/5] All GitHub Actions CI checks passed locally! Proceeding with push."
+echo "pre-push: [5/6] All GitHub Actions CI checks passed locally!"
+
+# Step 6: Automatically sync docs/ to idoracing.github.io if docs/ changed
+SYNC_DOCS=0
+if [ -n "$PUSH_REFS" ]; then
+	while read -r local_ref local_sha remote_ref remote_sha; do
+		if [ "$local_ref" = "refs/heads/main" ] || [ "$local_ref" = "refs/heads/master" ]; then
+			if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+				SYNC_DOCS=1
+			elif [ -n "$local_sha" ] && [ -n "$remote_sha" ]; then
+				if [ -n "$(git -C "$REPO_ROOT" diff --name-only "$remote_sha" "$local_sha" -- docs/ 2>/dev/null || true)" ]; then
+					SYNC_DOCS=1
+				fi
+			fi
+		fi
+	done <<< "$PUSH_REFS"
+fi
+
+if [ "$SYNC_DOCS" -eq 1 ]; then
+	echo "pre-push: [6/6] Detected changes in docs/! Synchronizing idoracing.github.io..."
+	if [ -x "$REPO_ROOT/scripts/sync-pages.sh" ]; then
+		"$REPO_ROOT/scripts/sync-pages.sh" || {
+			echo "pre-push: WARNING: Could not automatically sync docs/ to idoracing.github.io. Run ./scripts/sync-pages.sh manually." >&2
+		}
+	fi
+else
+	echo "pre-push: [6/6] No changes in docs/ detected. Proceeding with push."
+fi
+
 exit 0
