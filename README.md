@@ -179,6 +179,7 @@ Download ready-to-use standalone binaries from the **[Latest Release](https://gi
    gamemoderun /path/to/idoracing/recorder/bin/idoracing-launcher %command%
    ```
    *(Or with MangoHud: `mangohud gamemoderun /path/to/idoracing/recorder/bin/idoracing-launcher %command%`)*  
+   *(Optional CLI flags to disable subsystems per session: `-no-hud`, `-no-moza`, `-no-spotter`, `-no-recorder`)*  
 4. Start the game. The launcher automatically:
    - Identifies the simulator (`acc`, `lmu`, `acevo`, `dr2`, `acrally`, `ac`).
    - Hooks `idoracing-recorder.exe` into the Proton environment.
@@ -186,6 +187,10 @@ Download ready-to-use standalone binaries from the **[Latest Release](https://gi
    - Connects to your Moza wheelbase over serial CDC-ACM.
    - Starts the Pep spotter audio engine.
    - Cleans up every subsystem cleanly when the game exits.
+
+> [!TIP]
+> **Check Subsystem & Hardware Diagnostics:**  
+> Run `/path/to/recorder/bin/idoracing-launcher -status` to inspect your active configuration file, subsystem states (`ENABLED` / `DISABLED`), detected Moza serial port, and binary dependencies.
 
 > [!IMPORTANT]
 > **Proton Compatibility Recommendations:**
