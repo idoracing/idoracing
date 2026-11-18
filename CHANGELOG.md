@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Official GitHub Pages Landing Page (`docs/index.html`)**:
+  - Added standalone, responsive dark-mode showcase page served directly from the `/docs` directory for GitHub Pages.
+  - Aligned with the exact IdoRacing dashboard visual identity (Petronas cyan `#00D2BE`, dark carbon backgrounds, Titillium Web, JetBrains Mono and Racing Sans One).
+  - Interactive screenshot switcher, copy-to-clipboard Steam launch options, and direct download links to the latest standalone binaries.
+  - Humble, realistic technical explanations of features without AI marketing buzzwords.
+  - Full SEO optimization with OpenGraph, Twitter Cards, Schema.org JSON-LD structured data, and bilingual toggle (ES / EN).
+
 ## [0.4.0] - 2026-11-18
 
 ### Added
