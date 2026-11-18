@@ -251,6 +251,24 @@ func TestConfigManagerReload(t *testing.T) {
 	}
 }
 
+func TestConfigManagerNonExistentFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	nonExistent := filepath.Join(tmpDir, "does_not_exist.json")
+
+	cm := NewConfigManager(nonExistent)
+	cfg := cm.Get()
+
+	// Should not fail and should use defaults
+	if !cfg.PepSpotter || !cfg.HUDOverlay || !cfg.MozaShiftLights || !cfg.Recorder {
+		t.Fatalf("expected all defaults to be true, got %+v", cfg)
+	}
+
+	// File should NOT have been created on disk
+	if _, err := os.Stat(nonExistent); !os.IsNotExist(err) {
+		t.Fatalf("expected file to not be created, but it exists: %s", nonExistent)
+	}
+}
+
 func TestLauncherConfigJSONAliases(t *testing.T) {
 	// 1. Modern keys
 	modernJSON := `{

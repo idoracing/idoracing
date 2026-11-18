@@ -166,7 +166,11 @@ func main() {
 		logger.Info("LAUNCHER", "==================================================")
 		logger.Info("LAUNCHER", "IdoRacing Unified Launcher v%s Status Report", Version)
 		logger.Info("LAUNCHER", "==================================================")
-		logger.Info("LAUNCHER", "Config file: %s", configPath)
+		if _, err := os.Stat(configPath); err == nil {
+			logger.Info("LAUNCHER", "Config file: %s", configPath)
+		} else {
+			logger.Info("LAUNCHER", "Config file: %s (not found, using built-in defaults)", configPath)
+		}
 		logger.Info("LAUNCHER", "Log path:    %s", logPath)
 		logger.Info("LAUNCHER", "Repo root:   %s", repoRoot)
 		logger.Info("LAUNCHER", "--------------------------------------------------")
@@ -256,7 +260,11 @@ func main() {
 	}
 
 	logger.Info("LAUNCHER", "Starting IdoRacing Unified Supervisor v%s", Version)
-	logger.Info("LAUNCHER", "Config: %s | Log: %s", configPath, logPath)
+	configDesc := configPath
+	if _, err := os.Stat(configPath); err != nil {
+		configDesc = fmt.Sprintf("%s (defaults)", configPath)
+	}
+	logger.Info("LAUNCHER", "Config: %s | Log: %s", configDesc, logPath)
 	logger.Info("LAUNCHER", "Subsystems: [Recorder: %t] [HUD: %t] [Spotter: %t] [Moza: %t]",
 		cfg.Recorder, cfg.HUDOverlay, cfg.PepSpotter, cfg.MozaShiftLights)
 

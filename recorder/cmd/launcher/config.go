@@ -238,9 +238,7 @@ func NewConfigManager(path string) *ConfigManager {
 		cfg:  DefaultConfig(),
 	}
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		_ = cm.Save(cm.cfg)
-	} else {
+	if _, err := os.Stat(path); err == nil {
 		cm.Reload()
 	}
 

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added dedicated subsystem toggles: `pep_spotter`, `hud_overlay`, `moza_shift_lights`, and `recorder` with 100% backward-compatible aliases (`enabled`, `hud_enabled`, `moza_leds`, `recorder_enabled`) across Go launcher, Python backend, and React frontend.
   - Added per-session CLI override flags to `idoracing-launcher`: `-hud` / `-no-hud`, `-moza` / `-no-moza`, `-spotter` / `-no-spotter` (or `-pep` / `-no-pep`), and `-recorder` / `-no-recorder`.
   - Added detailed subsystem and hardware status diagnostic report in `idoracing-launcher -status`, displaying active config path, log path, enabled/disabled state of every subsystem, Moza serial port detection, and binary presence.
+  - Zero-fail default fallback: if no configuration file is present on disk, the supervisor runs safely using built-in in-memory defaults with all subsystems enabled, without polluting the filesystem or raising errors.
 
 ### Fixed
 - **Moza Steering Wheel Shift LEDs & Telemetry Protocol**:
