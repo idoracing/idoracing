@@ -11,6 +11,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+from analysis.tracks import known_track_length
 from domain.session import Lap, Session, normalize_track_name
 from importers.acevo_importer import resolve_acevo_session_info
 from importers.laps import distance_covered, truncate_teleport_jumps, without_boundary_wrap
@@ -114,6 +115,10 @@ class CSVImporter:
                     metadata["car"] = lmu_info["car"]
                 metadata["simulator"] = "Le Mans Ultimate"
 
+        # Official lap length when the circuit is one we have mapped (None otherwise).
+        # Used to segment laps by distance when the recorder's own track_length_m is 0.
+        known_len = known_track_length(metadata.get("track"))
+
         df = pd.read_csv(self.filepath, comment="#")
 
         # Check if row 0 has units (e.g. non-numeric while row 1 is numeric)
@@ -210,6 +215,8 @@ class CSVImporter:
                 if len(speeds_arr) == len(times_arr) and len(speeds_arr) > 10:
                     phys_total = float(np.sum((speeds_arr[1:] / 3.6) * np.diff(times_arr)))
                     track_len_est = float(metadata.get("track_length_m", 0.0) or 0.0)
+                    if track_len_est < 100.0 and known_len:
+                        track_len_est = known_len
                     if track_len_est < 100.0 and track_position:
                         track_len_est = float(np.max(dist_series)) if len(dist_series) > 0 else 0.0
                     if track_len_est > 100.0 and phys_total > track_len_est * (len(unique_laps) + 1) * 0.7:
@@ -236,6 +243,8 @@ class CSVImporter:
             if stuck_lap_counter:
                 d_arr = np.asarray(dist_series, dtype=np.float64)
                 track_len_est = float(metadata.get("track_length_m", 0.0) or 0.0)
+                if track_len_est < 100.0 and known_len:
+                    track_len_est = known_len
                 if track_len_est < 100.0:
                     if track_position:
                         track_len_est = float(np.max(d_arr)) if len(d_arr) > 0 else 0.0
@@ -263,6 +272,19 @@ class CSVImporter:
                     wrap_threshold = -0.5 * track_len_est if track_len_est > 100.0 else -500.0
                     wrap_indices = np.where(np.diff(d_arr) < wrap_threshold)[0] + 1
                     boundaries = [0, *wrap_indices.tolist(), len(d_arr)]
+                elif known_len:
+                    # Known circuit but recorder track_length_m=0: segment the physically
+                    # integrated distance at multiples of the official lap length. On a
+                    # closed circuit every track_len metres travelled is one start/finish
+                    # line crossing, so boundaries land on the line even when the raw
+                    # accumulated lap_distance has unreliable tracker resets.
+                    boundaries = [0]
+                    target = known_len
+                    for i, d in enumerate(d_arr):
+                        if d >= target:
+                            boundaries.append(i)
+                            target += known_len
+                    boundaries.append(len(d_arr))
                 elif raw_lap_distance:
                     # Accumulated lap_distance: segment at each large tracker-reset drop.
                     # These drops mark where the recorder's distanceTracker detected a lap

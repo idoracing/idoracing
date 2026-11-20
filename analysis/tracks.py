@@ -476,7 +476,8 @@ RED_BULL_RING_CORNERS: list[dict[str, Any]] = [
 ]
 
 
-def get_track_length(track_name: str | None = None) -> float:
+def known_track_length(track_name: str | None = None) -> float | None:
+    """Official lap length for mapped tracks, None when the track is not in the table."""
     t = (track_name or "").lower()
     if "sebring" in t:
         return 6019.0
@@ -499,7 +500,12 @@ def get_track_length(track_name: str | None = None) -> float:
         return 4318.0
     if "zandvoort" in t:
         return 4259.0
-    return 4500.0
+    return None
+
+
+def get_track_length(track_name: str | None = None) -> float:
+    length = known_track_length(track_name)
+    return length if length is not None else 4500.0
 
 
 def known_track_corners(track_name: str | None) -> list[dict[str, Any]] | None:

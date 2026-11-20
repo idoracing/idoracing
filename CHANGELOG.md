@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ACC CSV Importer: Recover all laps when `CompletedLaps` is stuck (practice/qualifying)**:
   - ACC can leave `CompletedLaps` at 0 for the whole session when laps are invalid, so the recorder writes `lap=1` (or 1,2) for every sample and the importer only created 1-2 laps.
   - The CSV importer now detects this stuck counter by comparing the unique lap count against the physically integrated distance (speed × time), and segments laps by `lap_distance` wraps (position dropping from ~track_len back to ~0 at the start/finish line).
+  - When the recorder's `track_length_m` is 0 (ACC static page not read) but the circuit is mapped, laps are segmented at multiples of the official lap length on the physically integrated distance, so every segment is exactly one start/finish crossing even when the accumulated `lap_distance` has unreliable tracker resets. Verified on a real Monza session: 2 laps -> 11 laps recovered.
 
 ### Added
 - **Official GitHub Pages Landing Page (`docs/index.html`)**:

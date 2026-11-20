@@ -124,14 +124,15 @@ def test_csv_importer_normal_laps_not_affected_by_stuck_detection(tmp_path):
 
 
 def test_csv_importer_stuck_lap_counter_accumulated_distance(tmp_path):
-    """When track_length_m=0 in metadata, lap_distance is accumulated (not track position).
-    The importer must estimate track length from distance drops and segment by multiples."""
+    """When track_length_m=0 in metadata and the track is not one we have mapped,
+    lap_distance is accumulated (not track position). The importer must estimate
+    track length from distance drops and segment at the tracker-reset drops."""
     samples_per_lap = 100  # 2s at 50Hz
     n_real_laps = 8
     speed_ms = 250.0  # 900 km/h — covers 500m in 2s
     rows = [
         "# simulator: Assetto Corsa Competizione",
-        "# track: monza",
+        "# track: oslo",
         "# car: porsche_992_gt3_r",
         "# track_length_m: 0.0",
         "time,lap,lap_distance,speed,throttle,brake,gear,lat_accel,long_accel,lap_valid",
@@ -156,3 +157,39 @@ def test_csv_importer_stuck_lap_counter_accumulated_distance(tmp_path):
     # Must recover multiple laps despite lap column stuck at 1 and accumulated distance
     assert len(sess.laps) >= n_real_laps - 1  # allow off-by-one at boundaries
     assert [lap.lap_number for lap in sess.laps] == list(range(1, len(sess.laps) + 1))
+
+
+def test_csv_importer_stuck_lap_counter_known_track_segments_by_official_length(tmp_path):
+    """When track_length_m=0 but the track is mapped (monza = 5793 m), the importer must
+    segment the physically integrated distance at multiples of the official lap length,
+    even if the raw accumulated lap_distance has no reliable resets (pure monotonic)."""
+    track_len = 5793.0  # official Monza length from analysis.tracks
+    samples_per_lap = 100  # 2s at 50Hz per lap
+    n_real_laps = 6
+    speed_ms = track_len / 2.0  # covers exactly one lap in 2s
+    rows = [
+        "# simulator: Assetto Corsa Competizione",
+        "# track: monza",
+        "# car: porsche_992_gt3_r",
+        "# track_length_m: 0.0",
+        "time,lap,lap_distance,speed,throttle,brake,gear,lat_accel,long_accel,lap_valid",
+    ]
+    t = 0.0
+    acc_dist = 0.0
+    for _lap in range(n_real_laps):
+        for _i in range(samples_per_lap):
+            # Accumulated distance grows monotonically with NO drops (unreliable tracker)
+            acc_dist += speed_ms * 0.02
+            speed_kmh = speed_ms * 3.6
+            rows.append(f"{t:.3f},1,{acc_dist:.2f},{speed_kmh:.2f},1.0,0.0,4,0.5,0.2,1")
+            t += 0.02
+    csv_path = tmp_path / "acc_monza_stuck_known_len.csv"
+    csv_path.write_text("\n".join(rows))
+
+    sess = CSVImporter(str(csv_path)).parse()
+
+    # Must recover all real laps by segmenting at multiples of the official 5793 m
+    assert len(sess.laps) == n_real_laps
+    for lap in sess.laps:
+        span = max(lap.telemetry["distance"]) - min(lap.telemetry["distance"])
+        assert span == pytest.approx(track_len, rel=0.05)
