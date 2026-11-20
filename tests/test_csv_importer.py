@@ -66,3 +66,93 @@ def test_csv_importer_setup_and_pressure_columns(tmp_path):
     assert sess.telemetry["tc"][0] == 3.0
     assert sess.telemetry["abs"][0] == 4.0
     assert sess.telemetry["brake_bias"][0] == 54.5
+
+
+def test_csv_importer_stuck_lap_counter_segments_by_distance_wrap(tmp_path):
+    """ACC practice/qualifying can leave CompletedLaps stuck at 0, so the recorder writes
+    lap=1 for every sample even after 10 real laps. The importer must detect this and
+    segment by lap_distance wraps (position dropping from ~track_len back to ~0)."""
+    track_len = 200.0
+    samples_per_lap = 100  # 2s at 50Hz per lap
+    n_real_laps = 10
+    speed_ms = 100.0  # 360 km/h — physically consistent with covering track_len in 2s
+    rows = [
+        "# simulator: Assetto Corsa Competizione",
+        "# track: Oslo",
+        "# car: Porsche 911 GT3 R (992)",
+        f"# track_length_m: {track_len}",
+        "time,lap,lap_distance,speed,throttle,brake,gear,lat_accel,long_accel,lap_valid",
+    ]
+    t = 0.0
+    for _lap in range(n_real_laps):
+        for i in range(samples_per_lap):
+            # lap_distance goes 0 -> track_len within each lap, then wraps back to 0
+            lap_dist = (i / samples_per_lap) * track_len
+            speed_kmh = speed_ms * 3.6
+            rows.append(f"{t:.3f},1,{lap_dist:.2f},{speed_kmh:.2f},1.0,0.0,4,0.5,0.2,1")
+            t += 0.02  # 50Hz
+    csv_path = tmp_path / "acc_oslo_stuck_lap.csv"
+    csv_path.write_text("\n".join(rows))
+
+    sess = CSVImporter(str(csv_path)).parse()
+
+    # Must recover all 10 real laps despite lap column being stuck at 1
+    assert len(sess.laps) == n_real_laps
+    assert [lap.lap_number for lap in sess.laps] == list(range(1, n_real_laps + 1))
+    # Each lap should span roughly the full track length
+    for lap in sess.laps:
+        span = max(lap.telemetry["distance"]) - min(lap.telemetry["distance"])
+        assert span == pytest.approx(track_len, rel=0.05)
+
+
+def test_csv_importer_normal_laps_not_affected_by_stuck_detection(tmp_path):
+    """When the lap counter works normally (unique laps match physical distance), the
+    stuck-lap detection must NOT trigger and laps must be segmented by the lap column."""
+    rows = ["time,lap,lap_distance,speed,throttle,brake,gear,lat_accel,long_accel,lap_valid"]
+    t = 0.0
+    for lap_num in (1, 2):
+        for i in range(50):
+            lap_dist = (i / 50) * 3000.0
+            rows.append(f"{t:.3f},{lap_num},{lap_dist:.2f},180.0,1.0,0.0,4,0.5,0.2,1")
+            t += 0.02
+    csv_path = tmp_path / "normal_laps.csv"
+    csv_path.write_text("\n".join(rows))
+
+    sess = CSVImporter(str(csv_path)).parse()
+
+    assert [lap.lap_number for lap in sess.laps] == [1, 2]
+
+
+def test_csv_importer_stuck_lap_counter_accumulated_distance(tmp_path):
+    """When track_length_m=0 in metadata, lap_distance is accumulated (not track position).
+    The importer must estimate track length from distance drops and segment by multiples."""
+    samples_per_lap = 100  # 2s at 50Hz
+    n_real_laps = 8
+    speed_ms = 250.0  # 900 km/h — covers 500m in 2s
+    rows = [
+        "# simulator: Assetto Corsa Competizione",
+        "# track: monza",
+        "# car: porsche_992_gt3_r",
+        "# track_length_m: 0.0",
+        "time,lap,lap_distance,speed,throttle,brake,gear,lat_accel,long_accel,lap_valid",
+    ]
+    t = 0.0
+    acc_dist = 0.0
+    for lap_i in range(n_real_laps):
+        for i in range(samples_per_lap):
+            # Accumulated distance grows monotonically within a lap; at lap boundary
+            # the distanceTracker resets, causing a large backward drop
+            if i == 0 and lap_i > 0:
+                acc_dist = 0.0  # tracker reset: big drop from ~track_len*lap_i to 0
+            acc_dist += speed_ms * 0.02
+            speed_kmh = speed_ms * 3.6
+            rows.append(f"{t:.3f},1,{acc_dist:.2f},{speed_kmh:.2f},1.0,0.0,4,0.5,0.2,1")
+            t += 0.02
+    csv_path = tmp_path / "acc_monza_stuck_accumulated.csv"
+    csv_path.write_text("\n".join(rows))
+
+    sess = CSVImporter(str(csv_path)).parse()
+
+    # Must recover multiple laps despite lap column stuck at 1 and accumulated distance
+    assert len(sess.laps) >= n_real_laps - 1  # allow off-by-one at boundaries
+    assert [lap.lap_number for lap in sess.laps] == list(range(1, len(sess.laps) + 1))

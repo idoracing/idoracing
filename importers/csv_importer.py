@@ -139,11 +139,21 @@ class CSVImporter:
                 numeric_series = pd.to_numeric(df[matched_col], errors="coerce").fillna(0.0)
                 telemetry[canonical] = numeric_series.tolist()
 
-        # Lap distance is a position along the track, so laps keep it as recorded instead of starting at 0.
-        # Bogus distances (< 100m while driving) or AC EVO coordinates are ignored and integrated from speed instead.
+        # Lap distance is a position along the track only when the recorder had a valid
+        # track_length_m AND the max lap_distance stays within ~1.2x of it. When
+        # track_length_m is 0 (static page not read), lap_distance is accumulated distance
+        # from the distanceTracker fallback, not track position.
+        meta_track_len = float(metadata.get("track_length_m", 0.0) or 0.0)
+        ld_max = max(telemetry.get("lap_distance", [0.0])) if "lap_distance" in telemetry else 0.0
         track_position = (
-            "lap_distance" in telemetry and max(telemetry.get("lap_distance", [0.0])) > 100.0 and not is_acevo
+            "lap_distance" in telemetry
+            and ld_max > 100.0
+            and not is_acevo
+            and meta_track_len > 100.0
+            and ld_max <= meta_track_len * 1.2
         )
+        # Keep the raw lap_distance channel for stuck-lap detection (it has tracker resets)
+        raw_lap_distance = list(telemetry.get("lap_distance", [])) if "lap_distance" in telemetry else []
         if track_position:
             telemetry["distance"] = telemetry.pop("lap_distance")
         else:
@@ -174,6 +184,7 @@ class CSVImporter:
         # Segment into laps if lap column is present
         laps: list[Lap] = []
         corrupted_laps = False
+        stuck_lap_counter = False
         if "lap" in telemetry:
             lap_arr = np.array(telemetry["lap"])
             unique_laps = np.unique(lap_arr)
@@ -188,6 +199,132 @@ class CSVImporter:
                 or (len(unique_laps) <= 1 and total_dist > 4500.0)
             ):
                 corrupted_laps = True
+            elif len(unique_laps) <= 3 and len(dist_series) > 100 and "speed" in telemetry and "time" in telemetry:
+                # ACC practice/qualifying can leave CompletedLaps stuck at 0 (or 1) for the whole
+                # session when laps are invalid, so the recorder writes lap=1 (or 1,2) for every
+                # sample. Detect this by comparing the unique lap count against the physically
+                # integrated distance: if the car covered many more metres than unique_laps *
+                # track_length, the lap counter is stuck and we must segment by distance.
+                speeds_arr = np.asarray(telemetry["speed"], dtype=np.float64)
+                times_arr = np.asarray(telemetry["time"], dtype=np.float64)
+                if len(speeds_arr) == len(times_arr) and len(speeds_arr) > 10:
+                    phys_total = float(np.sum((speeds_arr[1:] / 3.6) * np.diff(times_arr)))
+                    track_len_est = float(metadata.get("track_length_m", 0.0) or 0.0)
+                    if track_len_est < 100.0 and track_position:
+                        track_len_est = float(np.max(dist_series)) if len(dist_series) > 0 else 0.0
+                    if track_len_est > 100.0 and phys_total > track_len_est * (len(unique_laps) + 1) * 0.7:
+                        stuck_lap_counter = True
+                    elif track_len_est < 100.0 and not track_position and raw_lap_distance:
+                        # track_length_m unknown and lap_distance is accumulated: use the raw
+                        # lap_distance channel (which has distanceTracker resets) to estimate
+                        # track length from the 75th percentile physical span between drops
+                        # (filters out short teleport segments).
+                        ld_arr = np.asarray(raw_lap_distance, dtype=np.float64)
+                        drops_tmp = np.where(np.diff(ld_arr) < -0.5 * float(np.max(ld_arr)))[0]
+                        if len(drops_tmp) >= 2:
+                            bounds_tmp = [0, *drops_tmp.tolist(), len(ld_arr)]
+                            phys_spans = []
+                            for a, b in zip(bounds_tmp[:-1], bounds_tmp[1:], strict=True):
+                                if b - a > 30:
+                                    seg_v = speeds_arr[a:b] / 3.6
+                                    seg_t = times_arr[a:b]
+                                    phys_spans.append(float(np.sum(seg_v[1:] * np.diff(seg_t))))
+                            if phys_spans:
+                                track_len_est = float(np.percentile(phys_spans, 75))
+                                if track_len_est > 100.0 and phys_total > track_len_est * (len(unique_laps) + 1) * 0.7:
+                                    stuck_lap_counter = True
+            if stuck_lap_counter:
+                d_arr = np.asarray(dist_series, dtype=np.float64)
+                track_len_est = float(metadata.get("track_length_m", 0.0) or 0.0)
+                if track_len_est < 100.0:
+                    if track_position:
+                        track_len_est = float(np.max(d_arr)) if len(d_arr) > 0 else 0.0
+                    elif raw_lap_distance:
+                        # Accumulated distance: estimate track length from 75th percentile
+                        # physical span between drops (filters teleport segments)
+                        ld_arr = np.asarray(raw_lap_distance, dtype=np.float64)
+                        drops_tmp = np.where(np.diff(ld_arr) < -0.5 * float(np.max(ld_arr)))[0]
+                        if len(drops_tmp) >= 2:
+                            speeds_arr = np.asarray(telemetry["speed"], dtype=np.float64)
+                            times_arr = np.asarray(telemetry["time"], dtype=np.float64)
+                            bounds_tmp = [0, *drops_tmp.tolist(), len(ld_arr)]
+                            phys_spans = []
+                            for a, b in zip(bounds_tmp[:-1], bounds_tmp[1:], strict=True):
+                                if b - a > 30:
+                                    seg_v = speeds_arr[a:b] / 3.6
+                                    seg_t = times_arr[a:b]
+                                    phys_spans.append(float(np.sum(seg_v[1:] * np.diff(seg_t))))
+                            if phys_spans:
+                                track_len_est = float(np.percentile(phys_spans, 75))
+                        if track_len_est < 100.0:
+                            track_len_est = 4000.0
+                if track_position:
+                    # Track position channel: segment by wraps (position drops from ~track_len to ~0)
+                    wrap_threshold = -0.5 * track_len_est if track_len_est > 100.0 else -500.0
+                    wrap_indices = np.where(np.diff(d_arr) < wrap_threshold)[0] + 1
+                    boundaries = [0, *wrap_indices.tolist(), len(d_arr)]
+                elif raw_lap_distance:
+                    # Accumulated lap_distance: segment at each large tracker-reset drop.
+                    # These drops mark where the recorder's distanceTracker detected a lap
+                    # change, which is the most reliable boundary when CompletedLaps is stuck.
+                    ld_arr = np.asarray(raw_lap_distance, dtype=np.float64)
+                    wrap_indices = np.where(np.diff(ld_arr) < -0.5 * float(np.max(ld_arr)))[0] + 1
+                    boundaries = [0, *wrap_indices.tolist(), len(ld_arr)]
+                else:
+                    # Fallback: segment accumulated distance by multiples of estimated track length
+                    boundaries = [0]
+                    target = track_len_est
+                    for i, d in enumerate(d_arr):
+                        if d >= target:
+                            boundaries.append(i)
+                            target += track_len_est
+                    boundaries.append(len(d_arr))
+                for seg_i in range(len(boundaries) - 1):
+                    start, end = boundaries[seg_i], boundaries[seg_i + 1]
+                    if end - start < 30:
+                        continue
+                    lap_telemetry = {k: [telemetry[k][idx] for idx in range(start, end)] for k in telemetry}
+                    t0 = lap_telemetry["time"][0]
+                    lap_telemetry["time"] = [v - t0 for v in lap_telemetry["time"]]
+                    # When segmenting by raw lap_distance drops (stuck counter), the boundaries
+                    # already sit at tracker resets, so keep the full segment: a teleport inside
+                    # it (e.g. garage return between laps) must not truncate the lap time.
+                    if track_position:
+                        lap_telemetry, is_incomplete = truncate_teleport_jumps(lap_telemetry)
+                        assert lap_telemetry is not None
+                        lap_telemetry["distance"] = without_boundary_wrap(lap_telemetry["distance"])
+                    else:
+                        is_incomplete = False
+                        d0 = lap_telemetry["distance"][0]
+                        lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
+                    assert lap_telemetry is not None
+                    if lap_telemetry.get("distance") and lap_telemetry["distance"][0] < 0:
+                        d0 = lap_telemetry["distance"][0]
+                        lap_telemetry["distance"] = [v - d0 for v in lap_telemetry["distance"]]
+                    t_arr = lap_telemetry["time"]
+                    lap_time = float(t_arr[-1] - t_arr[0]) if len(t_arr) > 1 else 0.0
+                    is_valid = not is_incomplete and lap_time > 20.0
+                    if is_valid and lap_valid is not None:
+                        lap_valid_samples = [lap_valid[idx] for idx in range(start, min(end, start + len(t_arr)))]
+                        valid_fraction = sum(1 for v in lap_valid_samples if v >= 1) / max(len(lap_valid_samples), 1)
+                        if valid_fraction >= 0.5:
+                            is_valid = all(v >= 1 for v in lap_valid_samples)
+                    laps.append(
+                        Lap(
+                            lap_number=seg_i + 1,
+                            lap_time=lap_time,
+                            is_valid=is_valid,
+                            is_incomplete=is_incomplete,
+                            telemetry=lap_telemetry,
+                            has_telemetry=True,
+                        )
+                    )
+                if len(laps) > 1:
+                    spans = [distance_covered(lap.telemetry or {}) for lap in laps]
+                    ref_span = float(np.median(spans))
+                    for lap, span in zip(laps, spans, strict=True):
+                        if span < 0.7 * ref_span or span > 1.3 * ref_span:
+                            lap.is_valid = False
             else:
                 for l_num in unique_laps:
                     indices = np.where(lap_arr == l_num)[0]

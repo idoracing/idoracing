@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **ACC CSV Importer: Recover all laps when `CompletedLaps` is stuck (practice/qualifying)**:
+  - ACC can leave `CompletedLaps` at 0 for the whole session when laps are invalid, so the recorder writes `lap=1` (or 1,2) for every sample and the importer only created 1-2 laps.
+  - The CSV importer now detects this stuck counter by comparing the unique lap count against the physically integrated distance (speed × time), and segments laps by `lap_distance` wraps (position dropping from ~track_len back to ~0 at the start/finish line).
+
 ### Added
 - **Official GitHub Pages Landing Page (`docs/index.html`)**:
   - Added standalone, responsive dark-mode showcase page served directly from the `/docs` directory for GitHub Pages.
